@@ -429,72 +429,120 @@ class MultiAgentDebateManager:
             "180"
         ]
 
-        logger.info(f"🎙️ Querying NotebookLM ({notebook_id[:8]}...) for persona {persona_name} (Timeout: 180s)...")
+        MAX_RETRIES = 2
+        RETRY_WAIT_SECONDS = 30  # Short retry — main protection is 90s turn pacing
 
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=env
+        for attempt in range(1, MAX_RETRIES + 1):
+            logger.info(
+                f"🎙️ Querying NotebookLM ({notebook_id[:8]}...) for {persona_name} "
+                f"— pokušaj {attempt}/{MAX_RETRIES}..."
             )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=185.0)
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env=env
+                )
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=185.0)
 
-            res_text = stdout.decode().strip() if stdout else ""
-            err_text = stderr.decode().strip() if stderr else ""
+                res_text = stdout.decode().strip() if stdout else ""
+                err_text = stderr.decode().strip() if stderr else ""
 
-            # Check for usage limit / rate limit from Google
-            is_rate_limited = "usage limit" in res_text.lower() or "usage limit" in err_text.lower() or "rejected" in res_text.lower()
+                is_rate_limited = (
+                    "usage limit" in res_text.lower()
+                    or "usage limit" in err_text.lower()
+                    or "rejected" in res_text.lower()
+                )
 
-            if proc.returncode != 0 or is_rate_limited:
-                logger.warning(f"⚠️ NLM Limit/Error za {persona_name}. Povlačim stvarne dokumente iz sveske...")
-                
-                # Fetch actual source documents from NotebookLM
+                if is_rate_limited:
+                    if attempt < MAX_RETRIES:
+                        logger.warning(
+                            f"⏳ NLM rate-limit za {persona_name} "
+                            f"(pokušaj {attempt}/{MAX_RETRIES}). "
+                            f"Čekam {RETRY_WAIT_SECONDS}s pre ponovnog slanja upita Google AI-u..."
+                        )
+                        await asyncio.sleep(RETRY_WAIT_SECONDS)
+                        continue
+                    else:
+                        # All retries exhausted — use grounded source fallback
+                        logger.warning(
+                            f"⚠️ Svi pokušaji iscrpljeni za {persona_name}. "
+                            f"Koristim source-grounded sintezu iz stvarnih dokumenata sveske."
+                        )
+                        sources = await self.fetch_notebook_sources(notebook_id)
+                        grounded_answer, citations = self._synthesize_grounded_response(
+                            persona=persona,
+                            topic=topic,
+                            round_num=round_num,
+                            recent_turns=recent_turns,
+                            sources=sources
+                        )
+                        self._memory_cache[cache_key] = (grounded_answer, citations)
+                        return grounded_answer, citations
+
+                if proc.returncode != 0:
+                    if attempt < MAX_RETRIES:
+                        logger.warning(f"⚠️ NLM error (returncode={proc.returncode}) za {persona_name}. Čekam {RETRY_WAIT_SECONDS}s...")
+                        await asyncio.sleep(RETRY_WAIT_SECONDS)
+                        continue
+                    sources = await self.fetch_notebook_sources(notebook_id)
+                    grounded_answer, citations = self._synthesize_grounded_response(
+                        persona=persona, topic=topic, round_num=round_num,
+                        recent_turns=recent_turns, sources=sources
+                    )
+                    self._memory_cache[cache_key] = (grounded_answer, citations)
+                    return grounded_answer, citations
+
+                # ── SUCCESS — parse NotebookLM AI answer ──
+                citations = []
+                try:
+                    data = json.loads(res_text)
+                    if data.get("status") == "error":
+                        raise ValueError(data.get("error", "NLM API Error"))
+
+                    answer = data.get("answer", "")
+                    raw_cites = data.get("citations", {})
+                    if isinstance(raw_cites, dict):
+                        citations = [f"Izvor {k}: {v}" for k, v in list(raw_cites.items())[:3]]
+                    elif isinstance(raw_cites, list):
+                        citations = [str(c) for c in raw_cites[:3]]
+                    if not answer:
+                        answer = str(data)
+
+                    logger.info(f"✅ NotebookLM AI odgovorio za {persona_name} (pokušaj {attempt})")
+                    self._memory_cache[cache_key] = (answer, citations)
+                    return answer, citations
+
+                except Exception as parse_err:
+                    if res_text:
+                        self._memory_cache[cache_key] = (res_text, [])
+                        return res_text, []
+                    if attempt < MAX_RETRIES:
+                        await asyncio.sleep(RETRY_WAIT_SECONDS)
+                        continue
+                    return f"Kao {persona_name}, analiziram odgovore iz sveske.", []
+
+            except asyncio.TimeoutError:
+                logger.warning(f"⏰ Timeout (pokušaj {attempt}) za {persona_name}")
+                if attempt < MAX_RETRIES:
+                    await asyncio.sleep(10)
+                    continue
                 sources = await self.fetch_notebook_sources(notebook_id)
                 grounded_answer, citations = self._synthesize_grounded_response(
-                    persona=persona,
-                    topic=topic,
-                    round_num=round_num,
-                    recent_turns=recent_turns,
-                    sources=sources
+                    persona=persona, topic=topic, round_num=round_num,
+                    recent_turns=recent_turns, sources=sources
                 )
-                self._memory_cache[cache_key] = (grounded_answer, citations)
                 return grounded_answer, citations
+            except Exception as e:
+                logger.error(f"Izuzetak u query_persona_notebook (pokušaj {attempt}): {e}")
+                if attempt < MAX_RETRIES:
+                    await asyncio.sleep(10)
+                    continue
+                return f"Kao {persona_name}, analiziram dostupne podatke u bazi znanja.", []
 
-            citations = []
-            try:
-                data = json.loads(res_text)
-                if data.get("status") == "error":
-                    raise ValueError(data.get("error", "NLM API Error"))
-
-                answer = data.get("answer", "")
-                raw_cites = data.get("citations", {})
-                if isinstance(raw_cites, dict):
-                    citations = [f"Izvor {k}: {v}" for k, v in list(raw_cites.items())[:3]]
-                elif isinstance(raw_cites, list):
-                    citations = [str(c) for c in raw_cites[:3]]
-                if not answer:
-                    answer = str(data)
-
-                self._memory_cache[cache_key] = (answer, citations)
-                return answer, citations
-            except Exception as parse_err:
-                if res_text and not is_rate_limited:
-                    self._memory_cache[cache_key] = (res_text, [])
-                    return res_text, []
-                fallback = f"Kao {persona_name}, potvrđujem saglasnost sa definisanim smernicama."
-                return fallback, []
-
-        except asyncio.TimeoutError:
-            logger.warning(f"Timeout querying NotebookLM for {persona_name}")
-            return (
-                f"*{persona_name} je konsultovao svoje izvore u svesci.*\n\n"
-                f"S obzirom na kompleksnost teme **'{topic}'**, fokusiram se na deterministički napredak.",
-                []
-            )
-        except Exception as e:
-            logger.error(f"Izuzetak u query_persona_notebook: {e}")
-            return f"Kao {persona_name}, analiziram dostupne podatke u bazi znanja.", []
+        # Should never reach here
+        return f"Kao {persona_name}, analiziram dostupne podatke.", []
 
     async def send_persona_message(
         self,
@@ -689,7 +737,7 @@ class MultiAgentDebateManager:
 
         await channel.send(embed=embed)
 
-    async def run_debate_loop(self, bot: discord.Client, channel_id: int, turn_delay_seconds: float = 3.0):
+    async def run_debate_loop(self, bot: discord.Client, channel_id: int, turn_delay_seconds: float = 90.0):
         """Continuous async loop executing debate turns until completion or pause."""
         session = self.get_session(channel_id)
         if not session:
@@ -706,7 +754,26 @@ class MultiAgentDebateManager:
                 continues = await self.execute_turn(bot, channel_id)
                 if not continues:
                     break
-                await asyncio.sleep(turn_delay_seconds)
+                # ── NLM Rate-Limit Guard: pause between turns ──
+                # Google NotebookLM enforces a rolling per-account rate limit.
+                # We post a visible "thinking" notice so users know the bot is working.
+                try:
+                    wait_ch = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
+                    next_idx = (session.current_turn_index) % len(session.personas)
+                    next_persona = session.personas[next_idx]
+                    nb_title = next_persona.get('notebook_title', 'NotebookLM')
+                    wait_notice = await wait_ch.send(
+                        f"⏳ **{next_persona['name']}** priprema odgovor iz NotebookLM sveske "
+                        f"*\"{nb_title}\"*... "
+                        f"(Google AI zahteva kratku pauzu između upita)"
+                    )
+                    await asyncio.sleep(turn_delay_seconds)
+                    try:
+                        await wait_notice.delete()
+                    except Exception:
+                        pass
+                except Exception:
+                    await asyncio.sleep(turn_delay_seconds)
         except asyncio.CancelledError:
             logger.info(f"Debata u kanalu {channel_id} je prekinuta/otkazana.")
         except Exception as e:
