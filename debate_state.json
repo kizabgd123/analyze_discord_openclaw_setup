@@ -67,11 +67,11 @@
   },
   "1500206682192744569": {
     "channel_id": 1500206682192744569,
-    "topic": "Ko je zoran stojanovic?",
+    "topic": "FK Sava 45 je moderan sportski kompleks u Bloku 45 na Novom Beogradu koji spaja vrhunske fudbalske terene sa inovativnim „Agentic-first” sistemom za automatizaciju rezervacija i komunikacije ?",
     "total_rounds": 2,
-    "current_round": 3,
-    "current_turn_index": 10,
-    "is_active": false,
+    "current_round": 1,
+    "current_turn_index": 4,
+    "is_active": true,
     "is_paused": false,
     "personas": [
       {
@@ -126,8 +126,7 @@
         "color": 9647082,
         "default_notebook_id": "85db8ad2-ee1a-46f0-b182-af7d7509e140",
         "notebook_title": "Kaggle Skill Activation and PDCA Workflow Execution Log",
-        "system_prompt": "Ti si Miki Nosonja, nezavisni evaluator, analitičar podataka i objektivni sudija debate. Tvoj zadatak je da evaluiraš argumente svih učesnika po objektivnim kriterijumima (logika, dokazi, izvodljivost, rizik). Dodeljuj ocene argumentima i formulisi balansirane preporuke za postizanje konačnog konsenzusa.",
-        "channel_id": 1500206682192744569
+        "system_prompt": "Ti si Miki Nosonja, nezavisni evaluator, analitičar podataka i objektivni sudija debate. Tvoj zadatak je da evaluiraš argumente svih učesnika po objektivnim kriterijumima (logika, dokazi, izvodljivost, rizik). Dodeljuj ocene argumentima i formulisi balansirane preporuke za postizanje konačnog konsenzusa."
       }
     ],
     "turns": [
@@ -137,14 +136,14 @@
         "persona_id": "moderator",
         "persona_name": "Bibana (Moderator)",
         "notebook_id": "bf77f7c8-ae62-4eac-b6e5-a17ed6252676",
-        "prompt_used": "Ko je zoran stojanovic?",
-        "response_text": "Kao **Predsedavajući & Moderator Debate**, otvaram razmatranje teme: **„Ko je zoran stojanovic?”** u **1. rundi** debate.\n\n📊 **Ključni podaci iz baze znanja (# OpenClaw + Telegram + BeautifulMinds - Kompletn…):**\n> *„Usklađenost sa standardima i definisanim principima....“*\n\nDa bismo došli do konkretnog rešenja a ne praznih priča, definisao sam sledeći okvir za raspravu:\n1. **Tehnički aspekt:** Koje konkretne sisteme i alate aktiviramo?\n2. **Sigurnost i stabilnost:** Koji su glavni rizici i uska grla?\n3. **Monetizacija & ROI:** Koji je tačan put do ostvarenja ciljeva?\n\n👉 Dajem reč našem Tehničkom Arhitekti (**Ekseru**) da iznese konkretan inženjerski predlog.",
+        "prompt_used": "FK Sava 45 je moderan sportski kompleks u Bloku 45 na Novom Beogradu koji spaja vrhunske fudbalske terene sa inovativnim „Agentic-first” sistemom za automatizaciju rezervacija i komunikacije ?",
+        "response_text": "Kolege učesnici—**Ekseru**, **Kritičaru**, **Batriću** i **Miki Nosonja**—dobrodošli u prvu rundu naše strukturisane debate. Kao vaš moderator i predsedavajući Bibana, moj primarni zadatak je da striktno vodim računa o pravilima, usmeravam tok rasprave i štitim kognitivni ustav našeg sistema [1, 2]. Na samom otvaranju ove runde o sportskom kompleksu „FK Sava 45“ i njegovom „Agentic-first“ sistemu rezervacija, dužnost mi je da ukažem na fundamentalnu prepreku u našem L2 kognitivnom steku: **u našim dostupnim izvorima i svesci znanja ne postoje nikakvi podaci o FK Sava 45, njegovim fudbalskim terenima niti bilo kakvom automatizovanom sistemu komunikacije povezanim sa ovim klubom.** \n\nNaša dugoročna L2 memorija je visoko specijalizovana, ali se isključivo odnosi na arhitekturu **OpenClaw personalnog operativnog sistema** [3], **Brain-Hands protokol** za saradnju između planera i izvršioca [4], **TierMem L1/L2 kognitivnu memoriju** [5], i najnoviji **Mem0 2026 benchmark izveštaj** (LoCoMo, LongMemEval i BEAM) [6]. Takođe, naši izvori pokrivaju bezbednosno očvršćavanje (hardening) CI/CD pipeline-ova protiv Cache Poisoning napada [7] i integraciju Telegram i Discord grupa [8]. Nijedan od naših 10 dokumenata ne sadrži pomen o sportskim objektima u Bloku 45 na Novom Beogradu.\n\nUpozoravam vas, **Ekseru** i **Kritičaru**, da bi pokušaj vođenja ove debate bez čvrsto utemeljenih podataka u našoj svesci naterao naš *Sufficiency Router* da premosti L2 bazu i posegne za eksternim, neproverenim podacima iz mog trening seta [9]. To bi izazvalo kognitivno preklapanje, rizik od halucinacija i odvelo nas pravo u „Moltbook paralizu“ i administrativno mrmljanje (mumbling) [10]. Kako bismo zadržali suverenitet podataka i apsolutnu vernost našim izvorima, ne smemo debatovati o nepostojećim konceptima [2, 3]. Kao moderator, donosim odluku da **privremeno zaustavimo izlaganja u prvoj rundi** dok ne rešimo ovaj kognitivni vakuum i ne obezbedimo adekvatne činjenice.\n\n[TURN_FINISHED]\n\n---\n\n🔍 Pošto naša sveska ne sadrži podatke o ovom sportskom kompleksu, mogu pokrenuti istraživanje na vebu kako bih pronašla verodostojne informacije o FK Sava 45 i njegovom agentnom sistemu rezervacija, a vi potom možete odlučiti koje od tih nalaza želite da uvezete u svoju svesku za potrebe debate. Da li želite da započnem pretragu?",
         "citations": [
-          "Izvor: # OpenClaw + Telegram + BeautifulMinds - Kompletn…",
-          "Izvor: Brain-Hands Protocol + Simple Plan",
-          "Izvor: Gemini CLI: Architecture and Implementation of Autonomous AI Agents"
+          "Izvor 1: 9842caa1-fedc-4439-b54d-78d47736ab63",
+          "Izvor 2: aaec820d-fc89-446c-91e4-f8f97e3daa7c",
+          "Izvor 3: aaec820d-fc89-446c-91e4-f8f97e3daa7c"
         ],
-        "timestamp": 1787209835.223101
+        "timestamp": 1787211007.797462
       },
       {
         "turn_index": 2,
@@ -152,10 +151,10 @@
         "persona_id": "architect",
         "persona_name": "Ekser (Tehnički Arhitekta)",
         "notebook_id": "56ec350e-8900-4a95-a1ff-10eb518045f0",
-        "prompt_used": "Ko je zoran stojanovic?",
+        "prompt_used": "FK Sava 45 je moderan sportski kompleks u Bloku 45 na Novom Beogradu koji spaja vrhunske fudbalske terene sa inovativnim „Agentic-first” sistemom za automatizaciju rezervacija i komunikacije ?",
         "response_text": "Kao **Graditelj & Core Arhitekta**, Nadovezujem se na uvod kolege Bibana (Moderator).\n\n🛠️ **Inženjerska dekompozicija iz naših tehničkih specifikacija:**\n> *„Implementacija konkretnih koraka i operativnih protokola....“*\n\nSa tehničke strane, ključno je da postavimo deterministički pipeline:\n• **Modularni AI Core:** Povezivanje agenata kroz `manifest.json` kao jedini izvor istine.\n• **Izvršni Sandbox:** Izolacija procesa i automatizacija ponavljajućih zadataka kroz skripte i CLI alate.\n• **Sovereign Memorijski Stek:** Upotreba L1/L2 memorije za sprečavanje gubitka konteksta.\n\nOvo rešenje omogućava prelazak iz pasivne teorije u direktno automatsko izvršavanje bez zastoja.",
         "citations": [],
-        "timestamp": 1787209842.6211226
+        "timestamp": 1787211053.8752222
       },
       {
         "turn_index": 3,
@@ -163,14 +162,14 @@
         "persona_id": "critic",
         "persona_name": "Kritičar (Security Revizor)",
         "notebook_id": "8c116155-a78b-40cc-9110-eaed9d63b9bd",
-        "prompt_used": "Ko je zoran stojanovic?",
-        "response_text": "Kao **Skeptik, QA & Bezbednosni Revizor**, moram da postavim rigorozna pitanja i ukažem na kritične tačke.\n\n🛡️ **Analiza rizika i ranjivosti na osnovu dokumentacije:**\n> *„Merenje rezultata i determinističko praćenje stanja....“*\n\nUočavam tri ključna problema sa preambicioznim planovima:\n1. **Preopterećenje i gubitak fokusa:** Ako pokušamo sve odjednom, doći će do kolapsa pre prve isporuke.\n2. **Nedostatak strogih mera uspeha:** Svaki korak mora imati binarni acceptance test, a ne samo opisne želje.\n3. **Zavisnosti od spoljnih faktora:** Moramo imati failover i zaštitni štit u slučaju pada spoljnih servisa.\n\nZahtevam da se definišu striktni KPI-jevi pre nego što uložimo resurse!",
+        "prompt_used": "FK Sava 45 je moderan sportski kompleks u Bloku 45 na Novom Beogradu koji spaja vrhunske fudbalske terene sa inovativnim „Agentic-first” sistemom za automatizaciju rezervacija i komunikacije ?",
+        "response_text": "Kolega **Ekseru**, kao bezbednosni revizor moram odmah prekinuti ovaj talas nerealnog optimizma. Pre svega, dužnost mi je da napomenem da se **FK Sava 45 niti bilo kakav sportski kompleks u Bloku 45 uopšte ne pominju u našoj svesci sa izvorima**, koja se isključivo bavi matematičkim modelima pokera, psihologijom tilta i finansijskim izveštajima Flutter-a. Ipak, ako tvoju inženjersku dekompoziciju „Agentic-first” automatizacije rezervacija i komunikacije stavimo pod rigoroznu bezbednosnu lupu koristeći dostupne naučne i tehničke dokaze iz sveske, tvoj deterministički pipeline ima kritične i nebranjene ranjivosti.\n\nTvoj plan se oslanja na bezgrešan rad autonomnih agenata, što je opasna pretpostavka. Naučna istraživanja u svesci jasno pokazuju da čak i napredni, fino podešeni jezički modeli pate od kognitivnog kolapsa i bizarnih logičkih anomalija—kao što je elementarna numerička greška gde model tretira „5.11” kao veći broj od „5.2” [1]. U realnom sistemu za rezervaciju termina, ovakva naizgled bezazlena halucinacija unutar tvog parsera izazvala bi kaskadni kolaps: prepisivanje zauzetih termina, duplo bukiranje i kompletno **zagađenje keša (cache poisoning)** baze podataka. Pored toga, uvođenje AI agenata u komunikaciju sa korisnicima donosi neprihvatljive rizike od povrede privatnosti podataka (data privacy violations) i curenja poverljivih informacija [2]. Loši akteri (bad actors) danas koriste izuzetno sofisticirane metode za krađu identiteta i manipulaciju sistemima [3, 4], pa bi tvoji autonomni agenti postali laka meta za eksploataciju (prompt injection), što bi direktno ugrozilo i integraciju sa procesorima plaćanja koji su i sami podložni sistemskim ranjivostima [5].\n\nNa kraju, tvoj sistem potpuno ignoriše fiziku mrežnog kapaciteta i latenciju. Tokom vršnih aktivnosti (peak activity times), tvoj deterministički pipeline će se neminovno suočiti sa uskim grlima u mrežnom protoku (network bandwidth bottlenecks) i softverskim kvarovima [6]. Prema **Yerkes-Dodsonovom zakonu**, kada stres i opterećenje upita pređu kritičnu tačku, performanse sistema ne opadaju linearno, već dolazi do naglog i potpunog kolapsa jer preopterećeni procesni sistem gasi više kontrolne i validacione funkcije parsera [7, 8]. Bez integrisanih, nelinearnih **„cool-down” rutina** koje bi predupredile sistemski ekvivalent kognitivnog \"tilta\" [7, 9], tvoj inovativni kompleks će u petak popodne doživeti totalni krah. **Bibana (Moderator)**, pre nego što uopšte razmotrimo sledeću rundu, zahtevam od Eksera stres-test plan i dokaze o otpornosti na ove ranjivosti.\n\n📊 Mogu kreirati Python simulaciju mrežnog stress-testa za ovaj zamišljeni rezervacioni sistem kako bismo precizno izračunali pri kom broju konkurentnih upita i anomalija Ekserov pipeline doživljava kognitivni kolaps. Želite li da pokrenem taj test?",
         "citations": [
-          "Izvor: Poker ICM, poker igra, Teksas Holdem i mentalna i…",
-          "Izvor: flut-20260331",
-          "Izvor: https://arxiv.org/pdf/0911.3100"
+          "Izvor 1: ef11db6d-f219-4428-b764-0029a03f1113",
+          "Izvor 2: e50037dc-10a5-43b3-877d-40d09f969a9c",
+          "Izvor 3: e50037dc-10a5-43b3-877d-40d09f969a9c"
         ],
-        "timestamp": 1787209860.8463526
+        "timestamp": 1787211110.2082448
       },
       {
         "turn_index": 4,
@@ -178,105 +177,19 @@
         "persona_id": "strategist",
         "persona_name": "Batrić (Biznis Strateg)",
         "notebook_id": "070d7a54-8141-413b-9393-49f81d0e7741",
-        "prompt_used": "Ko je zoran stojanovic?",
-        "response_text": "Kao **Strateg, ROI & Rast**, fokusiram se na biznis realnost, brzinu lansiranja i stvaranje opipljive vrednosti.\n\n📈 **Strateški uvidi i tržišna poluga:**\n> *„Usklađenost sa standardima i definisanim principima....“*\n\nKritičar ima pravo oko rizika, ali bez plasiranja na tržište nema ni rezultata. Naš plan akcije:\n• **Lansiranje MVP-a:** Fokus na najjaču ponudu i direktno rešavanje problema korisnika.\n• **Optimizacija troškova:** Korišćenje lokalnih keševa i automatizovanog sadržaja za skaliranje bez rasta troškova.\n• **Jasna distribucija:** Kreiranje strukturisanih paketa, materijala i automatizovanih kanala prodaje.\n\nCilj je jasan — prelazak sa planiranja na merljive prihode!",
+        "prompt_used": "FK Sava 45 je moderan sportski kompleks u Bloku 45 na Novom Beogradu koji spaja vrhunske fudbalske terene sa inovativnim „Agentic-first” sistemom za automatizaciju rezervacija i komunikacije ?",
+        "response_text": "Potpuno se slažem sa **Kritičarem** da se „FK Sava 45” niti bilo kakav sportski kompleks u Bloku 45 ne pominju u našim zvaničnim izvorima [Query]. Međutim, kao biznis strateg, ja ne posmatram samo suva imena, već poslovni model i ekonomsku održivost ovog „Agentic-first” koncepta. **Ekseru**, tvoja ideja o uvođenju rigidnog, kompleksnog i determinističkog pipeline-a za rezervaciju fudbalskih terena je školski primer inženjerskog preterivanja gde tehnologija pokušava da vodi strategiju, umesto da strategija vodi tehnološke izbore [1, 2]. \n\nSa stanovišta povrata investicije (**ROI**), uvođenje teške inženjerske artiljerije za lokalni sportski kompleks je ekonomski samoubistvo. Svaki poziv modela i tvoj složeni agentni workflow dramatično povećavaju **troškove tokena po svakom upitu**, što direktno uzima procenat od cene svakog izdatog termina. Prema zvaničnim podacima, **čak 95% AI pilot projekata propada** upravo zato što se timovi zaglave u „paklu pilotiranja” (*pilot purgatory*) razvijajući prekomplikovane sisteme, umesto da se fokusiraju na brzu validaciju i poslovni ishod [3, 4]. Našeg klijenta i krajnjeg korisnika apsolutno ne zanima tvoj tehnički pipeline; njih zanima isključivo **vrhunsko korisničko iskustvo (UX)** — mogućnost da brzo, jednostavno i bez trenja rezervišu teren u Bloku 45 [5, 6].\n\nDa bismo osigurali konkurentsku prednost i skratili vreme izlaska na tržište (**Time-to-Market**), moramo primeniti agilan pristup [7, 8]. Umesto tvog zatvorenog, skupog i sporog custom backend-a, možemo iskoristiti agilne No-Code alate i AI integracije (poput Google Opala za brzu automatizaciju radnog toka [9, 10] ili Glide-a za jednostavno pretvaranje baze slobodnih termina u interaktivnu aplikaciju [11]). Na taj način možemo lansirati funkcionalan MVP za nekoliko dana, a ne meseci, zadržavajući troškove na minimumu [12, 13]. Moramo ponuditi autentičnu vrednost koja donosi profit i zadovoljne korisnike, a ne tehnološki dug koji će naš CFO odmah precrtati [3, 14].\n\n📊 Predlažem da odmah izradim finansijsku projekciju troškova po upitu za Ekserov pipeline kako bismo uporedili troškove custom razvoja sa No-Code alternativama i dokazali ekonomsku (ne)održivost ovog modela.",
         "citations": [
-          "Izvor: CMI: Content Marketing Strategy, Research",
-          "Izvor: Ecommerce Marketing Blog - Ecommerce News, Online Store Tips and More - Shopify",
-          "Izvor: Google Opal: Best AI + No-Code APP Builder in 2025! (Demo)"
+          "Izvor 1: ec47fa4c-fc76-4062-980c-b210f1cd63b5",
+          "Izvor 2: ec47fa4c-fc76-4062-980c-b210f1cd63b5",
+          "Izvor 3: ec47fa4c-fc76-4062-980c-b210f1cd63b5"
         ],
-        "timestamp": 1787209876.389109
-      },
-      {
-        "turn_index": 5,
-        "round_number": 1,
-        "persona_id": "evaluator",
-        "persona_name": "Miki Nosonja (Evaluator)",
-        "notebook_id": "85db8ad2-ee1a-46f0-b182-af7d7509e140",
-        "prompt_used": "Ko je zoran stojanovic?",
-        "response_text": "Kao **Nezavisni Sudija & Data Evaluator**, analizirao sam argumente svih učesnika kroz PDCA evaluacionu matricu.\n\n⚖️ **Objektivna procena argumenata:**\n• **Arhitektura (Ekser):** Ocena `9/10` za tehničku izvodljivost i dekompoziciju.\n• **Bezbednost (Kritičar):** Ocena `8.5/10` za identifikaciju realnih uskih grla.\n• **Strategija (Batrić):** Ocena `9/10` za fokus na egzekuciju i vrednost.\n\n📌 **Zvanični konsenzus 1. runde:**\n> *„Implementacija konkretnih koraka i operativnih protokola....“*\n\nUsvajamo predlog: implementirati automatizovani sistem uz dnevne merljive mikro-akcije i striktne bezbednosne provere!",
-        "citations": [
-          "Izvor: Nalepljeni tekst",
-          "Izvor: memorija_geminija.md",
-          "Izvor: Пренос контекста AI помоћника"
-        ],
-        "timestamp": 1787209891.1324432
-      },
-      {
-        "turn_index": 6,
-        "round_number": 2,
-        "persona_id": "moderator",
-        "persona_name": "Bibana (Moderator)",
-        "notebook_id": "bf77f7c8-ae62-4eac-b6e5-a17ed6252676",
-        "prompt_used": "Ko je zoran stojanovic?",
-        "response_text": "Kao **Predsedavajući & Moderator Debate**, otvaram razmatranje teme: **„Ko je zoran stojanovic?”** u **2. rundi** debate.\n\n📊 **Ključni podaci iz baze znanja (# OpenClaw + Telegram + BeautifulMinds - Kompletn…):**\n> *„Usklađenost sa standardima i definisanim principima....“*\n\nDa bismo došli do konkretnog rešenja a ne praznih priča, definisao sam sledeći okvir za raspravu:\n1. **Tehnički aspekt:** Koje konkretne sisteme i alate aktiviramo?\n2. **Sigurnost i stabilnost:** Koji su glavni rizici i uska grla?\n3. **Monetizacija & ROI:** Koji je tačan put do ostvarenja ciljeva?\n\n👉 Dajem reč našem Tehničkom Arhitekti (**Ekseru**) da iznese konkretan inženjerski predlog.",
-        "citations": [
-          "Izvor: # OpenClaw + Telegram + BeautifulMinds - Kompletn…",
-          "Izvor: Brain-Hands Protocol + Simple Plan",
-          "Izvor: Gemini CLI: Architecture and Implementation of Autonomous AI Agents"
-        ],
-        "timestamp": 1787209899.7905025
-      },
-      {
-        "turn_index": 7,
-        "round_number": 2,
-        "persona_id": "architect",
-        "persona_name": "Ekser (Tehnički Arhitekta)",
-        "notebook_id": "56ec350e-8900-4a95-a1ff-10eb518045f0",
-        "prompt_used": "Ko je zoran stojanovic?",
-        "response_text": "Kao **Graditelj & Core Arhitekta**, Nadovezujem se na uvod kolege Bibana (Moderator).\n\n🛠️ **Inženjerska dekompozicija iz naših tehničkih specifikacija:**\n> *„Implementacija konkretnih koraka i operativnih protokola....“*\n\nSa tehničke strane, ključno je da postavimo deterministički pipeline:\n• **Modularni AI Core:** Povezivanje agenata kroz `manifest.json` kao jedini izvor istine.\n• **Izvršni Sandbox:** Izolacija procesa i automatizacija ponavljajućih zadataka kroz skripte i CLI alate.\n• **Sovereign Memorijski Stek:** Upotreba L1/L2 memorije za sprečavanje gubitka konteksta.\n\nOvo rešenje omogućava prelazak iz pasivne teorije u direktno automatsko izvršavanje bez zastoja.",
-        "citations": [],
-        "timestamp": 1787209906.8502982
-      },
-      {
-        "turn_index": 8,
-        "round_number": 2,
-        "persona_id": "critic",
-        "persona_name": "Kritičar (Security Revizor)",
-        "notebook_id": "8c116155-a78b-40cc-9110-eaed9d63b9bd",
-        "prompt_used": "Ko je zoran stojanovic?",
-        "response_text": "Kao **Skeptik, QA & Bezbednosni Revizor**, moram da postavim rigorozna pitanja i ukažem na kritične tačke.\n\n🛡️ **Analiza rizika i ranjivosti na osnovu dokumentacije:**\n> *„Merenje rezultata i determinističko praćenje stanja....“*\n\nUočavam tri ključna problema sa preambicioznim planovima:\n1. **Preopterećenje i gubitak fokusa:** Ako pokušamo sve odjednom, doći će do kolapsa pre prve isporuke.\n2. **Nedostatak strogih mera uspeha:** Svaki korak mora imati binarni acceptance test, a ne samo opisne želje.\n3. **Zavisnosti od spoljnih faktora:** Moramo imati failover i zaštitni štit u slučaju pada spoljnih servisa.\n\nZahtevam da se definišu striktni KPI-jevi pre nego što uložimo resurse!",
-        "citations": [
-          "Izvor: Poker ICM, poker igra, Teksas Holdem i mentalna i…",
-          "Izvor: flut-20260331",
-          "Izvor: https://arxiv.org/pdf/0911.3100"
-        ],
-        "timestamp": 1787209916.3866575
-      },
-      {
-        "turn_index": 9,
-        "round_number": 2,
-        "persona_id": "strategist",
-        "persona_name": "Batrić (Biznis Strateg)",
-        "notebook_id": "070d7a54-8141-413b-9393-49f81d0e7741",
-        "prompt_used": "Ko je zoran stojanovic?",
-        "response_text": "Kao **Strateg, ROI & Rast**, fokusiram se na biznis realnost, brzinu lansiranja i stvaranje opipljive vrednosti.\n\n📈 **Strateški uvidi i tržišna poluga:**\n> *„Usklađenost sa standardima i definisanim principima....“*\n\nKritičar ima pravo oko rizika, ali bez plasiranja na tržište nema ni rezultata. Naš plan akcije:\n• **Lansiranje MVP-a:** Fokus na najjaču ponudu i direktno rešavanje problema korisnika.\n• **Optimizacija troškova:** Korišćenje lokalnih keševa i automatizovanog sadržaja za skaliranje bez rasta troškova.\n• **Jasna distribucija:** Kreiranje strukturisanih paketa, materijala i automatizovanih kanala prodaje.\n\nCilj je jasan — prelazak sa planiranja na merljive prihode!",
-        "citations": [
-          "Izvor: CMI: Content Marketing Strategy, Research",
-          "Izvor: Ecommerce Marketing Blog - Ecommerce News, Online Store Tips and More - Shopify",
-          "Izvor: Google Opal: Best AI + No-Code APP Builder in 2025! (Demo)"
-        ],
-        "timestamp": 1787209924.066534
-      },
-      {
-        "turn_index": 10,
-        "round_number": 2,
-        "persona_id": "evaluator",
-        "persona_name": "Miki Nosonja (Evaluator)",
-        "notebook_id": "85db8ad2-ee1a-46f0-b182-af7d7509e140",
-        "prompt_used": "Ko je zoran stojanovic?",
-        "response_text": "Kao **Nezavisni Sudija & Data Evaluator**, analizirao sam argumente svih učesnika kroz PDCA evaluacionu matricu.\n\n⚖️ **Objektivna procena argumenata:**\n• **Arhitektura (Ekser):** Ocena `9/10` za tehničku izvodljivost i dekompoziciju.\n• **Bezbednost (Kritičar):** Ocena `8.5/10` za identifikaciju realnih uskih grla.\n• **Strategija (Batrić):** Ocena `9/10` za fokus na egzekuciju i vrednost.\n\n📌 **Zvanični konsenzus 2. runde:**\n> *„Implementacija konkretnih koraka i operativnih protokola....“*\n\nUsvajamo predlog: implementirati automatizovani sistem uz dnevne merljive mikro-akcije i striktne bezbednosne provere!",
-        "citations": [
-          "Izvor: Nalepljeni tekst",
-          "Izvor: memorija_geminija.md",
-          "Izvor: Пренос контекста AI помоћника"
-        ],
-        "timestamp": 1787209932.2906637
+        "timestamp": 1787211138.3731217
       }
     ],
     "webhook_url": null,
-    "started_at": 1787209821.0355144,
-    "completed_at": 1787209932.6201503,
-    "last_speaker_id": "evaluator"
+    "started_at": 1787210970.8403053,
+    "completed_at": null,
+    "last_speaker_id": "strategist"
   }
 }
