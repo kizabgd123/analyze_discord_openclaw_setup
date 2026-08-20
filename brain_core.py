@@ -383,14 +383,32 @@ class BrainCore:
 
     @staticmethod
     def _synthesize(ctx: Dict[str, Any]) -> str:
-        parts: List[str] = []
-        if ctx.get("nlm_answer"):
-            parts.append(ctx["nlm_answer"])
-        for hit in ctx.get("local_hits", [])[:3]:
-            parts.append(f"[Local] {hit.get('title','')}: {hit.get('excerpt','')}")
-        if not parts and ctx.get("memory_context"):
-            parts.append(ctx["memory_context"][:400])
-        return "\n\n".join(parts) if parts else "(No relevant context found)"
+        """
+        Synthesizes knowledge context into a concise, punchy, street-smart yet
+        100% technically grounded response (Vratiće se rode style, zero fluff).
+        """
+        nlm_ans = (ctx.get("nlm_answer") or "").strip()
+        local_hits = ctx.get("local_hits", [])
+
+        # If we have real NLM answer, keep it clean and remove repetitive boilerplates
+        if nlm_ans:
+            # Clean up excessively long quotes or redundant footer boilerplates
+            lines = [l for l in nlm_ans.splitlines() if not l.startswith("📊 Would you like me to generate")]
+            cleaned = "\n".join(lines).strip()
+            return cleaned
+
+        # Fallback to local FTS5 hits if NLM wasn't available
+        if local_hits:
+            bullets = []
+            for hit in local_hits[:3]:
+                bullets.append(f"• **{hit.get('title','Dokument')}**: {hit.get('excerpt','').strip()}")
+            return "Evo šta imamo direktno u lokalnoj bazi znanja:\n\n" + "\n".join(bullets)
+
+        if ctx.get("memory_context"):
+            mem = ctx["memory_context"].strip()
+            return f"Iz lokalne memorije bota:\n{mem[:350]}..."
+
+        return "Nema pronađenih podataka u sveskama za ovaj upit."
 
     @staticmethod
     def _get_auth_env() -> Dict[str, str]:
