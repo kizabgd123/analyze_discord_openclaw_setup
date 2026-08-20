@@ -67,10 +67,10 @@
   },
   "1500206682192744569": {
     "channel_id": 1500206682192744569,
-    "topic": "Ko je zoran stojanovic i jkako daa ga probijemo u ai",
+    "topic": "Ko je zoran Stojanovic i kako da mu pomognemo",
     "total_rounds": 2,
-    "current_round": 1,
-    "current_turn_index": 0,
+    "current_round": 3,
+    "current_turn_index": 10,
     "is_active": false,
     "is_paused": false,
     "personas": [
@@ -93,7 +93,8 @@
         "color": 3450963,
         "default_notebook_id": "56ec350e-8900-4a95-a1ff-10eb518045f0",
         "notebook_title": "56ec350e",
-        "system_prompt": "Ti si Ekser, vodeći tehnički arhitekta i graditelj sistema. Tvoj fokus su konkretan kod, arhitektura softvera, efikasnost izvršavanja, API integracije, deterministic execution i stabilnost infrastrukture. Odgovaraj sa tehničkom dubinom, navodi konkretne komponente, algoritme i inženjerska rešenja."
+        "system_prompt": "Ti si Ekser, vodeći tehnički arhitekta i graditelj sistema. Tvoj fokus su konkretan kod, arhitektura softvera, efikasnost izvršavanja, API integracije, deterministic execution i stabilnost infrastrukture. Odgovaraj sa tehničkom dubinom, navodi konkretne komponente, algoritme i inženjerska rešenja.",
+        "channel_id": 1500206682192744569
       },
       {
         "id": "critic",
@@ -103,7 +104,8 @@
         "color": 15352629,
         "default_notebook_id": "8c116155-a78b-40cc-9110-eaed9d63b9bd",
         "notebook_title": "Kopija beležnice Vlada Academy & JudgeGuard E2E Platform",
-        "system_prompt": "Ti si Kritičar, rigorozni bezbednosni revizor i skeptik. Tvoj zadatak je da izazivaš predloge drugih učesnika, pronalaziš skrivene greške, ranjivosti, rizik od cache poisoning-a, prekoračenja budžeta, latencije, fail-cases i nerealne pretpostavke. Budi konstruktivno oštar, zahtevaj dokaze i testove verifikacije."
+        "system_prompt": "Ti si Kritičar, rigorozni bezbednosni revizor i skeptik. Tvoj zadatak je da izazivaš predloge drugih učesnika, pronalaziš skrivene greške, ranjivosti, rizik od cache poisoning-a, prekoračenja budžeta, latencije, fail-cases i nerealne pretpostavke. Budi konstruktivno oštar, zahtevaj dokaze i testove verifikacije.",
+        "channel_id": 1500206682192744569
       },
       {
         "id": "strategist",
@@ -113,7 +115,8 @@
         "color": 16497669,
         "default_notebook_id": "070d7a54-8141-413b-9393-49f81d0e7741",
         "notebook_title": "Strategije Digitalnog Marketinga i Kreativnog Poslovanja",
-        "system_prompt": "Ti si Batrić, biznis strateg i stručnjak za ROI i tržišni rast. Tvoj fokus su ekonomska isplativost, troškovi tokena po upitu, brzina lansiranja (Time-to-Market), korisničko iskustvo (UX), skalabilnost i konkurentska prednost. Podsećaj tehničare na stvarnu vrednost za korisnika i biznis."
+        "system_prompt": "Ti si Batrić, biznis strateg i stručnjak za ROI i tržišni rast. Tvoj fokus su ekonomska isplativost, troškovi tokena po upitu, brzina lansiranja (Time-to-Market), korisničko iskustvo (UX), skalabilnost i konkurentska prednost. Podsećaj tehničare na stvarnu vrednost za korisnika i biznis.",
+        "channel_id": 1500206682192744569
       },
       {
         "id": "evaluator",
@@ -123,13 +126,145 @@
         "color": 9647082,
         "default_notebook_id": "85db8ad2-ee1a-46f0-b182-af7d7509e140",
         "notebook_title": "Kaggle Skill Activation and PDCA Workflow Execution Log",
-        "system_prompt": "Ti si Miki Nosonja, nezavisni evaluator, analitičar podataka i objektivni sudija debate. Tvoj zadatak je da evaluiraš argumente svih učesnika po objektivnim kriterijumima (logika, dokazi, izvodljivost, rizik). Dodeljuj ocene argumentima i formulisi balansirane preporuke za postizanje konačnog konsenzusa."
+        "system_prompt": "Ti si Miki Nosonja, nezavisni evaluator, analitičar podataka i objektivni sudija debate. Tvoj zadatak je da evaluiraš argumente svih učesnika po objektivnim kriterijumima (logika, dokazi, izvodljivost, rizik). Dodeljuj ocene argumentima i formulisi balansirane preporuke za postizanje konačnog konsenzusa.",
+        "channel_id": 1500206682192744569
       }
     ],
-    "turns": [],
+    "turns": [
+      {
+        "turn_index": 1,
+        "round_number": 1,
+        "persona_id": "moderator",
+        "persona_name": "Bibana (Moderator)",
+        "notebook_id": "bf77f7c8-ae62-4eac-b6e5-a17ed6252676",
+        "prompt_used": "Ko je zoran Stojanovic i kako da mu pomognemo",
+        "response_text": "Kao **Predsedavajući & Moderator Debate**, analizirao sam temu **'Ko je zoran Stojanovic i kako da mu pomognemo'** kroz prizmu naših standarda.\n\nU **1. rundi**, moj ključni stav je da moramo osigurati strogu usklađenost sa principima arhitekture: modularnost komponenata, striktno praćenje kognitivnog stanja kroz `manifest.json` i eliminaciju bilo kakvih zavisnosti koje mogu izazvati prekoračenje resursa ili zastoje u sistemu.\n\n*📌 (Odgovor generisan iz lokalne suverene memorije — zaštićena Google NLM kvota)*",
+        "citations": [
+          "Lokalna memorija: SOUL.md ustav"
+        ],
+        "timestamp": 1787208985.545269
+      },
+      {
+        "turn_index": 2,
+        "round_number": 1,
+        "persona_id": "architect",
+        "persona_name": "Ekser (Tehnički Arhitekta)",
+        "notebook_id": "56ec350e-8900-4a95-a1ff-10eb518045f0",
+        "prompt_used": "Ko je zoran Stojanovic i kako da mu pomognemo",
+        "response_text": "Kao **Graditelj & Core Arhitekta**, analizirao sam temu **'Ko je zoran Stojanovic i kako da mu pomognemo'** kroz prizmu naših standarda.\n\nU **1. rundi**, moj ključni stav je da moramo osigurati strogu usklađenost sa principima arhitekture: modularnost komponenata, striktno praćenje kognitivnog stanja kroz `manifest.json` i eliminaciju bilo kakvih zavisnosti koje mogu izazvati prekoračenje resursa ili zastoje u sistemu.\n\n*📌 (Odgovor generisan iz lokalne suverene memorije — zaštićena Google NLM kvota)*",
+        "citations": [
+          "Lokalna memorija: SOUL.md ustav"
+        ],
+        "timestamp": 1787208991.487269
+      },
+      {
+        "turn_index": 3,
+        "round_number": 1,
+        "persona_id": "critic",
+        "persona_name": "Kritičar (Security Revizor)",
+        "notebook_id": "8c116155-a78b-40cc-9110-eaed9d63b9bd",
+        "prompt_used": "Ko je zoran Stojanovic i kako da mu pomognemo",
+        "response_text": "Kao **Skeptik, QA & Bezbednosni Revizor**, analizirao sam temu **'Ko je zoran Stojanovic i kako da mu pomognemo'** kroz prizmu naših standarda.\n\nU **1. rundi**, moj ključni stav je da moramo osigurati strogu usklađenost sa principima arhitekture: modularnost komponenata, striktno praćenje kognitivnog stanja kroz `manifest.json` i eliminaciju bilo kakvih zavisnosti koje mogu izazvati prekoračenje resursa ili zastoje u sistemu.\n\n*📌 (Odgovor generisan iz lokalne suverene memorije — zaštićena Google NLM kvota)*",
+        "citations": [
+          "Lokalna memorija: SOUL.md ustav"
+        ],
+        "timestamp": 1787209000.674544
+      },
+      {
+        "turn_index": 4,
+        "round_number": 1,
+        "persona_id": "strategist",
+        "persona_name": "Batrić (Biznis Strateg)",
+        "notebook_id": "070d7a54-8141-413b-9393-49f81d0e7741",
+        "prompt_used": "Ko je zoran Stojanovic i kako da mu pomognemo",
+        "response_text": "Kao **Strateg, ROI & Rast**, analizirao sam temu **'Ko je zoran Stojanovic i kako da mu pomognemo'** kroz prizmu naših standarda.\n\nU **1. rundi**, moj ključni stav je da moramo osigurati strogu usklađenost sa principima arhitekture: modularnost komponenata, striktno praćenje kognitivnog stanja kroz `manifest.json` i eliminaciju bilo kakvih zavisnosti koje mogu izazvati prekoračenje resursa ili zastoje u sistemu.\n\n*📌 (Odgovor generisan iz lokalne suverene memorije — zaštićena Google NLM kvota)*",
+        "citations": [
+          "Lokalna memorija: SOUL.md ustav"
+        ],
+        "timestamp": 1787209008.4780667
+      },
+      {
+        "turn_index": 5,
+        "round_number": 1,
+        "persona_id": "evaluator",
+        "persona_name": "Miki Nosonja (Evaluator)",
+        "notebook_id": "85db8ad2-ee1a-46f0-b182-af7d7509e140",
+        "prompt_used": "Ko je zoran Stojanovic i kako da mu pomognemo",
+        "response_text": "Kao **Nezavisni Sudija & Data Evaluator**, analizirao sam temu **'Ko je zoran Stojanovic i kako da mu pomognemo'** kroz prizmu naših standarda.\n\nU **1. rundi**, moj ključni stav je da moramo osigurati strogu usklađenost sa principima arhitekture: modularnost komponenata, striktno praćenje kognitivnog stanja kroz `manifest.json` i eliminaciju bilo kakvih zavisnosti koje mogu izazvati prekoračenje resursa ili zastoje u sistemu.\n\n*📌 (Odgovor generisan iz lokalne suverene memorije — zaštićena Google NLM kvota)*",
+        "citations": [
+          "Lokalna memorija: SOUL.md ustav"
+        ],
+        "timestamp": 1787209016.9861972
+      },
+      {
+        "turn_index": 6,
+        "round_number": 2,
+        "persona_id": "moderator",
+        "persona_name": "Bibana (Moderator)",
+        "notebook_id": "bf77f7c8-ae62-4eac-b6e5-a17ed6252676",
+        "prompt_used": "Ko je zoran Stojanovic i kako da mu pomognemo",
+        "response_text": "Kao **Predsedavajući & Moderator Debate**, analizirao sam temu **'Ko je zoran Stojanovic i kako da mu pomognemo'** kroz prizmu naših standarda.\n\nU **2. rundi**, moj ključni stav je da moramo osigurati strogu usklađenost sa principima arhitekture: modularnost komponenata, striktno praćenje kognitivnog stanja kroz `manifest.json` i eliminaciju bilo kakvih zavisnosti koje mogu izazvati prekoračenje resursa ili zastoje u sistemu.\n\n*📌 (Odgovor generisan iz lokalne suverene memorije — zaštićena Google NLM kvota)*",
+        "citations": [
+          "Lokalna memorija: SOUL.md ustav"
+        ],
+        "timestamp": 1787209024.925714
+      },
+      {
+        "turn_index": 7,
+        "round_number": 2,
+        "persona_id": "architect",
+        "persona_name": "Ekser (Tehnički Arhitekta)",
+        "notebook_id": "56ec350e-8900-4a95-a1ff-10eb518045f0",
+        "prompt_used": "Ko je zoran Stojanovic i kako da mu pomognemo",
+        "response_text": "Kao **Graditelj & Core Arhitekta**, analizirao sam temu **'Ko je zoran Stojanovic i kako da mu pomognemo'** kroz prizmu naših standarda.\n\nU **2. rundi**, moj ključni stav je da moramo osigurati strogu usklađenost sa principima arhitekture: modularnost komponenata, striktno praćenje kognitivnog stanja kroz `manifest.json` i eliminaciju bilo kakvih zavisnosti koje mogu izazvati prekoračenje resursa ili zastoje u sistemu.\n\n*📌 (Odgovor generisan iz lokalne suverene memorije — zaštićena Google NLM kvota)*",
+        "citations": [
+          "Lokalna memorija: SOUL.md ustav"
+        ],
+        "timestamp": 1787209030.8573365
+      },
+      {
+        "turn_index": 8,
+        "round_number": 2,
+        "persona_id": "critic",
+        "persona_name": "Kritičar (Security Revizor)",
+        "notebook_id": "8c116155-a78b-40cc-9110-eaed9d63b9bd",
+        "prompt_used": "Ko je zoran Stojanovic i kako da mu pomognemo",
+        "response_text": "Kao **Skeptik, QA & Bezbednosni Revizor**, analizirao sam temu **'Ko je zoran Stojanovic i kako da mu pomognemo'** kroz prizmu naših standarda.\n\nU **2. rundi**, moj ključni stav je da moramo osigurati strogu usklađenost sa principima arhitekture: modularnost komponenata, striktno praćenje kognitivnog stanja kroz `manifest.json` i eliminaciju bilo kakvih zavisnosti koje mogu izazvati prekoračenje resursa ili zastoje u sistemu.\n\n*📌 (Odgovor generisan iz lokalne suverene memorije — zaštićena Google NLM kvota)*",
+        "citations": [
+          "Lokalna memorija: SOUL.md ustav"
+        ],
+        "timestamp": 1787209039.847671
+      },
+      {
+        "turn_index": 9,
+        "round_number": 2,
+        "persona_id": "strategist",
+        "persona_name": "Batrić (Biznis Strateg)",
+        "notebook_id": "070d7a54-8141-413b-9393-49f81d0e7741",
+        "prompt_used": "Ko je zoran Stojanovic i kako da mu pomognemo",
+        "response_text": "Kao **Strateg, ROI & Rast**, analizirao sam temu **'Ko je zoran Stojanovic i kako da mu pomognemo'** kroz prizmu naših standarda.\n\nU **2. rundi**, moj ključni stav je da moramo osigurati strogu usklađenost sa principima arhitekture: modularnost komponenata, striktno praćenje kognitivnog stanja kroz `manifest.json` i eliminaciju bilo kakvih zavisnosti koje mogu izazvati prekoračenje resursa ili zastoje u sistemu.\n\n*📌 (Odgovor generisan iz lokalne suverene memorije — zaštićena Google NLM kvota)*",
+        "citations": [
+          "Lokalna memorija: SOUL.md ustav"
+        ],
+        "timestamp": 1787209047.4434662
+      },
+      {
+        "turn_index": 10,
+        "round_number": 2,
+        "persona_id": "evaluator",
+        "persona_name": "Miki Nosonja (Evaluator)",
+        "notebook_id": "85db8ad2-ee1a-46f0-b182-af7d7509e140",
+        "prompt_used": "Ko je zoran Stojanovic i kako da mu pomognemo",
+        "response_text": "Kao **Nezavisni Sudija & Data Evaluator**, analizirao sam temu **'Ko je zoran Stojanovic i kako da mu pomognemo'** kroz prizmu naših standarda.\n\nU **2. rundi**, moj ključni stav je da moramo osigurati strogu usklađenost sa principima arhitekture: modularnost komponenata, striktno praćenje kognitivnog stanja kroz `manifest.json` i eliminaciju bilo kakvih zavisnosti koje mogu izazvati prekoračenje resursa ili zastoje u sistemu.\n\n*📌 (Odgovor generisan iz lokalne suverene memorije — zaštićena Google NLM kvota)*",
+        "citations": [
+          "Lokalna memorija: SOUL.md ustav"
+        ],
+        "timestamp": 1787209055.1263463
+      }
+    ],
     "webhook_url": null,
-    "started_at": 1787208833.1602354,
-    "completed_at": null,
-    "last_speaker_id": "moderator"
+    "started_at": 1787208980.459123,
+    "completed_at": 1787209055.4451456,
+    "last_speaker_id": "evaluator"
   }
 }

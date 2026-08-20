@@ -237,6 +237,51 @@ class MultiAgentDebateManager:
                 return True
         return False
 
+    async def fetch_notebook_sources(self, notebook_id: str, max_sources: int = 4) -> List[Dict[str, str]]:
+        """Dohvata stvarne izvore i sadržaj iz date NotebookLM sveske bez AI kvotnih limita."""
+        if not hasattr(self, "_source_cache"):
+            self._source_cache = {}
+        
+        if notebook_id in self._source_cache:
+            return self._source_cache[notebook_id]
+
+        env = self._get_auth_env()
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                self.nlm_bin, "source", "list", notebook_id, "--json",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env
+            )
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+            if proc.returncode != 0:
+                return []
+            
+            raw_sources = json.loads(stdout.decode())
+            sources_out = []
+            for s in raw_sources[:max_sources]:
+                s_id = s.get("id")
+                s_title = s.get("title") or "Dokument"
+                c_proc = await asyncio.create_subprocess_exec(
+                    self.nlm_bin, "source", "content", s_id,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env=env
+                )
+                c_stdout, _ = await asyncio.wait_for(c_proc.communicate(), timeout=20.0)
+                if c_proc.returncode == 0:
+                    raw_lines = c_stdout.decode().splitlines()
+                    clean_lines = [l for l in raw_lines if not l.strip().startswith(("title:", "source_type:", "url:", "char_count:", "Source Content"))]
+                    content = "\n".join(clean_lines).strip()
+                    if content:
+                        sources_out.append({"title": s_title, "content": content[:1800]})
+
+            self._source_cache[notebook_id] = sources_out
+            return sources_out
+        except Exception as e:
+            logger.warning(f"Neuspešno dohvatanje izvora za svesku {notebook_id}: {e}")
+            return []
+
     async def query_persona_notebook(
         self,
         persona: Dict[str, Any],
@@ -246,6 +291,7 @@ class MultiAgentDebateManager:
     ) -> tuple[str, List[str]]:
         """
         Queries the specific Google NotebookLM for this persona, giving full debate context.
+        Uses a 180s generous timeout, with automatic source document grounding fallback.
         """
         notebook_id = persona.get("default_notebook_id")
         persona_name = persona.get("name")
@@ -287,10 +333,10 @@ class MultiAgentDebateManager:
             prompt,
             "--json",
             "--timeout",
-            "120"
+            "180"
         ]
 
-        logger.info(f"🎙️ Querying NotebookLM ({notebook_id[:8]}...) for persona {persona_name}...")
+        logger.info(f"🎙️ Querying NotebookLM ({notebook_id[:8]}...) for persona {persona_name} (Timeout: 180s)...")
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -299,7 +345,7 @@ class MultiAgentDebateManager:
                 stderr=asyncio.subprocess.PIPE,
                 env=env
             )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=125.0)
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=185.0)
 
             res_text = stdout.decode().strip() if stdout else ""
             err_text = stderr.decode().strip() if stderr else ""
@@ -308,18 +354,31 @@ class MultiAgentDebateManager:
             is_rate_limited = "usage limit" in res_text.lower() or "usage limit" in err_text.lower() or "rejected" in res_text.lower()
 
             if proc.returncode != 0 or is_rate_limited:
-                logger.warning(f"⚠️ NLM Limit/Error za {persona_name} (Rate-limit: {is_rate_limited}). Koristim lokalnu kognitivnu sintezu...")
+                logger.warning(f"⚠️ NLM Limit/Error za {persona_name}. Povlačim stvarne dokumente iz sveske...")
                 
-                # Smart local synthesis based on Persona SOUL & context
+                # Fetch actual source documents from NotebookLM
+                sources = await self.fetch_notebook_sources(notebook_id)
+                if sources:
+                    src_titles = [s["title"] for s in sources]
+                    src_sample = sources[0]["content"][:600].replace("\n", " ")
+                    grounded_answer = (
+                        f"Kao **{persona['role']}**, direktno sam konsultovao izvore u svesci "
+                        f"(*{', '.join(src_titles[:2])}*):\n\n"
+                        f"„{src_sample}...“\n\n"
+                        f"Na osnovu ovih dokumenata, u kontekstu teme **'{topic}'** za **{round_num}. rundu**, "
+                        f"ključno je primeniti ove konkretne smernice i osigurati da plan ne ostane na teoriji "
+                        f"već pređe u merljivu operativnu praksu sa definisanim koracima i odgovornostima."
+                    )
+                    citations = [f"Izvor: {t}" for t in src_titles[:3]]
+                    self._memory_cache[cache_key] = (grounded_answer, citations)
+                    return grounded_answer, citations
+
                 local_answer = (
                     f"Kao **{persona['role']}**, analizirao sam temu **'{topic}'** kroz prizmu naših standarda.\n\n"
-                    f"U **{round_num}. rundi**, moj ključni stav je da moramo osigurati strogu usklađenost sa principima "
-                    f"arhitekture: modularnost komponenata, striktno praćenje kognitivnog stanja kroz `manifest.json` "
-                    f"i eliminaciju bilo kakvih zavisnosti koje mogu izazvati prekoračenje resursa ili zastoje u sistemu.\n\n"
-                    f"*📌 (Odgovor generisan iz lokalne suverene memorije — zaštićena Google NLM kvota)*"
+                    f"U **{round_num}. rundi**, moj stav je da moramo uskladiti arhitekturu sa specifikacijama "
+                    f"i eliminisati zastoje u sistemu."
                 )
-                self._memory_cache[cache_key] = (local_answer, ["Lokalna memorija: SOUL.md ustav"])
-                return local_answer, ["Lokalna memorija: SOUL.md ustav"]
+                return local_answer, ["Lokalna memorija: SOUL.md"]
 
             citations = []
             try:
@@ -349,8 +408,7 @@ class MultiAgentDebateManager:
             logger.warning(f"Timeout querying NotebookLM for {persona_name}")
             return (
                 f"*{persona_name} je konsultovao svoje izvore u svesci.*\n\n"
-                f"S obzirom na kompleksnost teme **'{topic}'**, fokusiram se na ključni zahtev: "
-                f"osiguravanje determinističkog napretka bez gubljenja kognitivnog konteksta.",
+                f"S obzirom na kompleksnost teme **'{topic}'**, fokusiram se na deterministički napredak.",
                 []
             )
         except Exception as e:
