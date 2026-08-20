@@ -67,7 +67,7 @@
   },
   "1500206682192744569": {
     "channel_id": 1500206682192744569,
-    "topic": "Kako najbolje plasirati fk sava 45",
+    "topic": "Ko je zoran stojanovic i jkako daa ga probijemo u ai",
     "total_rounds": 2,
     "current_round": 1,
     "current_turn_index": 0,
@@ -128,7 +128,7 @@
     ],
     "turns": [],
     "webhook_url": null,
-    "started_at": 1787208451.2948744,
+    "started_at": 1787208833.1602354,
     "completed_at": null,
     "last_speaker_id": "moderator"
   }

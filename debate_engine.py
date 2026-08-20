@@ -370,12 +370,19 @@ class MultiAgentDebateManager:
         """
         Sends the debate turn using Webhook (for true multi-bot name & avatar) or standard channel send.
         """
-        channel = bot_or_channel if isinstance(bot_or_channel, (discord.TextChannel, discord.Thread)) else getattr(bot_or_channel, "channel", None)
+        channel = bot_or_channel if hasattr(bot_or_channel, "send") else None
+        ch_id = persona.get("channel_id", 0)
+
         if channel is None and hasattr(bot_or_channel, "get_channel"):
-            channel = bot_or_channel.get_channel(persona.get("channel_id", 0))
+            channel = bot_or_channel.get_channel(ch_id)
+            if not channel and hasattr(bot_or_channel, "fetch_channel") and ch_id:
+                try:
+                    channel = await bot_or_channel.fetch_channel(ch_id)
+                except Exception as fe:
+                    logger.error(f"fetch_channel greška: {fe}")
 
         if not channel:
-            logger.error("Kanal nije pronađen za slanje debate.")
+            logger.error(f"Kanal {ch_id} nije pronađen za slanje debate.")
             return None
 
         # Build Rich Embed
@@ -396,23 +403,26 @@ class MultiAgentDebateManager:
             embed.add_field(name="📚 Citirani Izvori", value=cite_str, inline=False)
 
         # Try Webhook for native multi-bot rendering
-        try:
-            webhooks = await channel.webhooks()
-            webhook = next((w for w in webhooks if w.name == "OpenClawDebateGateway"), None)
-            if not webhook:
-                webhook = await channel.create_webhook(name="OpenClawDebateGateway", reason="Multi-Agent Debate Bot Personas")
+        if hasattr(channel, "webhooks") and not isinstance(channel, discord.Thread):
+            try:
+                webhooks = await channel.webhooks()
+                webhook = next((w for w in webhooks if w.name == "OpenClawDebateGateway"), None)
+                if not webhook:
+                    webhook = await channel.create_webhook(name="OpenClawDebateGateway", reason="Multi-Agent Debate Bot Personas")
 
-            msg = await webhook.send(
-                username=persona.get("name", "AI Agent"),
-                avatar_url=persona.get("avatar_url"),
-                embed=embed,
-                view=view,
-                wait=True
-            )
-            return msg
-        except Exception as e:
-            logger.debug(f"Webhook send nije uspeo ({e}), koristim standardni channel.send")
-            return await channel.send(embed=embed, view=view)
+                msg = await webhook.send(
+                    username=persona.get("name", "AI Agent"),
+                    avatar_url=persona.get("avatar_url"),
+                    embed=embed,
+                    view=view,
+                    wait=True
+                )
+                return msg
+            except Exception as e:
+                logger.debug(f"Webhook nije uspeo ({e}), prelazim na standardni channel.send")
+
+        # Fallback to direct channel.send
+        return await channel.send(embed=embed, view=view)
 
     async def execute_turn(self, bot: discord.Client, channel_id: int, on_turn_complete: Optional[Callable] = None) -> bool:
         """
@@ -434,12 +444,28 @@ class MultiAgentDebateManager:
         session.last_speaker_id = persona["id"]
 
         channel = bot.get_channel(channel_id)
+        if channel is None and hasattr(bot, "fetch_channel"):
+            try:
+                channel = await bot.fetch_channel(channel_id)
+            except Exception as e:
+                logger.error(f"Kanal {channel_id} nije pronađen (get/fetch error: {e})")
+                return False
+
         if not channel:
             logger.error(f"Kanal {channel_id} nije pronađen.")
             return False
 
         # Typing indicator in channel
-        async with channel.typing():
+        try:
+            async with channel.typing():
+                answer, citations = await self.query_persona_notebook(
+                    persona=persona,
+                    topic=session.topic,
+                    round_num=session.current_round,
+                    recent_turns=session.turns
+                )
+        except Exception as type_err:
+            logger.warning(f"Typing greška: {type_err}")
             answer, citations = await self.query_persona_notebook(
                 persona=persona,
                 topic=session.topic,
