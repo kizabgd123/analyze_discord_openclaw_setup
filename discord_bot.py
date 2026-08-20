@@ -744,6 +744,12 @@ async def on_ready():
     if not heartbeat_task.is_running():
         heartbeat_task.start()
 
+    # Automatski nastavi aktivne debate koje su prekinute restartom
+    for ch_id, sess in list(debate_mgr.sessions.items()):
+        if sess.is_active and not sess.is_paused:
+            logger.info(f"🔄 Automatski nastavljam aktivnu debatu u kanalu {ch_id} (Turn {sess.current_turn_index + 1})...")
+            debate_mgr.start_debate(bot, ch_id)
+
 @bot.event
 async def on_message(message: discord.Message):
     if message.author == bot.user:

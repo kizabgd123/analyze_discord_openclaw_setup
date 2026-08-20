@@ -25,3 +25,7 @@
 2026-08-20T07:39:44Z | 🟡 Starting Start Notebook sources optimization for debate personas
 ✅ Completed Notebook sources optimization for debate personas
 2026-08-20T07:43:12Z | 🟡 Starting Verify Notebook sources optimization for debate personas Complete
+🟡 Starting Auto-Resume Active Debates and Clean Chunking
+2026-08-20T08:08:39Z | 🟡 Starting Start Auto-Resume Active Debates and Clean Chunking
+✅ Completed Auto-Resume Active Debates and Clean Chunking
+2026-08-20T08:08:52Z | 🟡 Starting Verify Auto-Resume Active Debates and Clean Chunking Complete
