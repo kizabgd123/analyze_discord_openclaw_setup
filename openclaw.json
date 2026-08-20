@@ -1,0 +1,93 @@
+{
+  "_comment": "OpenClaw Sovereign Agent — Jedini izvor istine (Source of Truth)",
+  "_version": "2.0.0",
+  "_updated": "2026-08-20",
+  "_decision_record": "DECISION_RECORD_EVIDENCE_LAYER.md",
+
+  "channels": {
+    "discord": {
+      "enabled": true,
+      "token": "SecretRef:env:DISCORD_BOT_TOKEN",
+      "execApprovals": {
+        "enabled": true,
+        "approvers": ["ADMIN_DISCORD_USER_ID"],
+        "target": "dm",
+        "timeoutMinutes": 30,
+        "cleanupAfterResolve": true
+      },
+      "commands": {
+        "native": "auto"
+      }
+    }
+  },
+
+  "agents": {
+    "defaults": {
+      "tokenBudget": {
+        "limit": 3000,
+        "alertAt": 0.8
+      },
+      "memory": {
+        "multiScope": {
+          "enabled": true,
+          "scopes": ["agent_id", "user_id", "session_id"],
+          "_note": "session_id je usvojeni identifikator sesije. Alias 'run_id' se ne koristi."
+        }
+      }
+    }
+  },
+
+  "evidenceLayer": {
+    "enabled": true,
+    "pattern": "EDV",
+    "sufficiencyRouter": {
+      "l1_first": true,
+      "escalate_to_l2_on_miss": true
+    },
+    "retrieval": {
+      "modes": ["semantic_similarity", "bm25", "entity_matching"],
+      "output_format": "distilled_json",
+      "raw_text_injection": false
+    },
+    "security": {
+      "write_before_query_barrier": true,
+      "session_key_verification": true,
+      "soul_md_attribute_check": true,
+      "sandbox_execution": true
+    },
+    "decisionRecord": {
+      "auto_generate": true,
+      "output_file": "DECISION_RECORD_EVIDENCE_LAYER.md",
+      "confidence_threshold": 0.75
+    }
+  },
+
+  "actionGates": {
+    "tier1": {
+      "description": "Read-only operacije",
+      "approval_required": false,
+      "execution": "direct"
+    },
+    "tier2": {
+      "description": "Stanje-menjajuće operacije",
+      "approval_required": true,
+      "approval_channel": "dm",
+      "timeout_minutes": 30
+    },
+    "tier3": {
+      "description": "Kritične/ireverzibilne operacije",
+      "approval_required": true,
+      "approval_channel": "dm",
+      "requires_explicit_confirm": true,
+      "timeout_minutes": 10
+    }
+  },
+
+  "personas": {
+    "moderator":  { "notebook_id": "bf77f7c8-ae62-4eac-b6e5-a17ed6252676" },
+    "architect":  { "notebook_id": "9f017e1b-14ea-4028-9a76-dcd35b447752" },
+    "critic":     { "notebook_id": "2ac2015f-51dd-44f8-9210-521499f0c953" },
+    "strategist": { "notebook_id": "070d7a54-8141-413b-9393-49f81d0e7741" },
+    "evaluator":  { "notebook_id": "98d5b107-3c1b-4345-b8d5-1825dbfe4084" }
+  }
+}

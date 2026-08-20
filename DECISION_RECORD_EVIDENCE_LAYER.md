@@ -77,6 +77,9 @@ graph TD
 ```
 
 ### **B. Usvojeni `openclaw.json` Blueprint:**
+
+> Puna konfiguracija dostupna u: [`openclaw.json`](./openclaw.json) — jedini "izvor istine" projekta.
+
 ```json
 {
   "channels": {
@@ -104,7 +107,8 @@ graph TD
       "memory": {
         "multiScope": {
           "enabled": true,
-          "scopes": ["agent_id", "user_id", "session_id"]
+          "scopes": ["agent_id", "user_id", "session_id"],
+          "_note": "Usvojeni identifikator: 'session_id'. Alias 'run_id' se ne koristi."
         }
       }
     }

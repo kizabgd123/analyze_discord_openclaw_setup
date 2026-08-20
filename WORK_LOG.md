@@ -33,3 +33,5 @@
 2026-08-20T08:19:10Z | 🟡 Starting Start Export Decision Record Artifact
 ✅ Completed Export Decision Record Artifact
 2026-08-20T08:19:30Z | 🟡 Starting Verify Export Decision Record Artifact Complete
+🟡 Starting Fix: manifest.json creation, run_id/session_id, Decision Record corrections
+✅ Completed Fix: manifest.json creation, session_id/run_id, Decision Record corrections
