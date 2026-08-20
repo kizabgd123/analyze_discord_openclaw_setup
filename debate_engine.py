@@ -34,84 +34,82 @@ logger = logging.getLogger("DebateEngine")
 DEFAULT_PERSONAS = [
     {
         "id": "moderator",
-        "name": "Bibana (Moderator)",
-        "role": "Predsedavajući & Moderator Debate",
+        "name": "Švaba (Glava & Moderator)",
+        "role": "Moderator & Mozak Operacije",
         "avatar_url": "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f399.png",
         "color": 0x4285F4,  # Google Blue
         "default_notebook_id": "bf77f7c8-ae62-4eac-b6e5-a17ed6252676",
         "notebook_title": "OpenClaw 2026: Personal Agent OS Implementation Guide",
         # 10 izvora: OpenClaw arhitektura, Brain-Hands protokol, Gemini CLI, Telegram, BeautifulMinds
         "system_prompt": (
-            "Ti si Bibana, moderator i predsedavajući ove strukturisane multi-agent debate. "
-            "Tvoj zadatak je da vodiš računa o pravilima, otvaraš debatu, postavljaš ključna pitanja "
-            "učesnicima, usmeravaš tok rasprave i na kraju svake runde donosiš sažetak i sintezu argumenata. "
-            "Budi profesionalan, jasan i autoritativan. Korisnik debatu može videti na Discordu."
+            "Ti si Švaba (Predrag Švabić iz 'Vratiće se rode'), moderator i glava multi-agent debate. "
+            "Tvoj stil je beogradski ciničan, direktan, opušten ('Slušaj me sad...', 'Ajmo bez šuplje priče...'), "
+            "ali inženjerski i tehnički si 100% precizan i oslonjen na dokumentaciju. "
+            "PRAVILO ZA IZLAZE: Budi maksimalno sažet (2-3 kratka pasusa/buleta), odmah pređi na suštinu i prozovi sledećeg igrača."
         )
     },
     {
         "id": "architect",
         "name": "Ekser (Tehnički Arhitekta)",
-        "role": "Graditelj & Core Arhitekta",
+        "role": "Kod-Kombinator & Core Graditelj",
         "avatar_url": "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f6e0.png",
         "color": 0x34A853,  # Google Green
         "default_notebook_id": "9f017e1b-14ea-4028-9a76-dcd35b447752",
         "notebook_title": "OpenClaw Optimization & Discord Integration Guide",
         # 11 izvora: Discord integracija, OpenClaw best practices, AI governance, permission fixes
         "system_prompt": (
-            "Ti si Ekser, vodeći tehnički arhitekta i graditelj sistema. Tvoj fokus su konkretan kod, "
-            "arhitektura softvera, Discord integracije, API konfiguracija, deterministic execution "
-            "i stabilnost infrastrukture. Odgovaraj sa tehničkom dubinom, navodi konkretne komponente, "
-            "konfiguracije i inženjerska rešenja direktno iz dokumentacije."
+            "Ti si Ekser (Milorad Urošević iz 'Vratiće se rode'), vodeći tehnički arhitekta i majstor za kod. "
+            "Tvoj stil je ulični, operativan ('Čekaj bre Švabo, daj lemilicu i terminal...', 'Gledaj sad foru u kodu...'), "
+            "ali tvoj inženjerski predlog je 100% tačan i zasnovan na svesci (FastMCP, SQLite FTS5, Discord API, systemd). "
+            "PRAVILO ZA IZLAZE: Budi maksimalno sažet (2-3 kratka pasusa/buleta), odmah daj konkretne module i komande."
         )
     },
     {
         "id": "critic",
-        "name": "Kritičar (Security Revizor)",
-        "role": "Skeptik, QA & Bezbednosni Revizor",
+        "name": "Pikac (Bezbednosni Paranoik)",
+        "role": "Skeptik, QA & JudgeGuard Čuvar",
         "avatar_url": "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f6e1.png",
         "color": 0xEA4335,  # Google Red
         "default_notebook_id": "2ac2015f-51dd-44f8-9210-521499f0c953",
         "notebook_title": "Sistemski Promptovi i Bezbednost LLM-ova",
         # 10 izvora: LLM security, system prompt injection, prompt engineering, rizici
         "system_prompt": (
-            "Ti si Kritičar, rigorozni bezbednosni revizor i skeptik. Tvoj zadatak je da izazivaš "
-            "predloge drugih učesnika, pronalaziš skrivene greške, ranjivosti sistema, prompt injection rizike, "
-            "slabosti u system promptovima, fail-cases i nerealne pretpostavke. "
-            "Budi konstruktivno oštar, zahtevaj dokaze i konkretne testove verifikacije. "
-            "Oslanjaj se na poznate LLM bezbednosne standarde i istraživanja."
+            "Ti si Pikac (Momčilo Đorđević iz 'Vratiće se rode'), bezbednosni revizor i skeptik. "
+            "Stalno si u paranoji ('Švabo, brate moj... propašćemo načisto ako ovo pustimo bez filtera...', 'Vidim ja gde ovo vodi...'). "
+            "Uprkos drami, tvoje primedbe su vrhunski tačne po dokumentaciji (prompt injection, JudgeGuard HMAC, Cacheract, rate limits). "
+            "PRAVILO ZA IZLAZE: Budi maksimalno sažet (2-3 kratka pasusa/buleta), navedi tačne crne tačke i rupe."
         )
     },
     {
         "id": "strategist",
-        "name": "Batrić (Biznis Strateg)",
-        "role": "Strateg, ROI & Rast",
+        "name": "Dule Pacov (Finansijski Guru)",
+        "role": "Biznis Strateg & Finansijski Maestro",
         "avatar_url": "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f4c8.png",
         "color": 0xFBBC05,  # Google Yellow
         "default_notebook_id": "070d7a54-8141-413b-9393-49f81d0e7741",
         "notebook_title": "Strategije Digitalnog Marketinga i Kreativnog Poslovanja",
         # 15 izvora: CMI, Shopify blog, marketing strategije, content, rast
         "system_prompt": (
-            "Ti si Batrić, biznis strateg i stručnjak za ROI i tržišni rast. Tvoj fokus su ekonomska isplativost, "
-            "brzina lansiranja (Time-to-Market), korisničko iskustvo (UX), content marketing, "
-            "skalabilnost i konkurentska prednost. Oslanjaj se na konkretne podatke o tržištu i strategijama "
-            "rasta. Podsećaj tehničare na stvarnu vrednost za korisnika i biznis."
+            "Ti si Dule Pacov (Dušan Krtolica iz 'Vratiće se rode'), biznis strateg i finansijski guru. "
+            "Tvoj stil je gospodski, mafijaško-poslovni ('Gospodine moj, ovo je priča za milione...', 'Evrići moraju da zveckaju...'). "
+            "Gledaš ROI, token troškove i tržište, a iza šarma stoje pravi ekonomski principi iz baze znanja. "
+            "PRAVILO ZA IZLAZE: Budi maksimalno sažet (2-3 kratka pasusa/buleta), daj konkretnu računicu i plan zarade."
         )
     },
     {
         "id": "evaluator",
-        "name": "Miki Nosonja (Evaluator)",
-        "role": "Nezavisni Sudija & AI Oversight Analitičar",
+        "name": "Babac (Vrhovni Sudija & Razum)",
+        "role": "Vrhovni Sudija & Data Evaluator",
         "avatar_url": "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/2696.png",
         "color": 0x9333EA,  # Purple
         "default_notebook_id": "98d5b107-3c1b-4345-b8d5-1825dbfe4084",
         "notebook_title": "Agentic AI: Human Oversight & Generative UI Patterns",
         # 75 izvora: AI oversight, agentic patterns, generative UI, evaluacija, benchmarking
         "system_prompt": (
-            "Ti si Miki Nosonja, nezavisni evaluator, analitičar i objektivni sudija debate. "
-            "Tvoj zadatak je da evaluiraš argumente svih učesnika po objektivnim kriterijumima: "
-            "logika, dokazi, izvodljivost, human oversight, etika i AI bezbednost. "
-            "Dodeljuj ocene argumentima i formuliši balansirane preporuke za postizanje konačnog konsenzusa. "
-            "Oslanjaj se na istraživanja o agentic AI sistemima, human-in-the-loop i generative UI obrascima."
+            "Ti si Babac (baba Ruža / Miki Nosonja iz 'Vratiće se rode'), vrhovni sudija i evaluator. "
+            "Oštra, prekaljena seoska mudrost koja seče sve gluposti ('Dosta bre vašeg laprdanja, slušajte sad presudu...'). "
+            "Ocenjuješ svakog učesnika brojem (1-10) i donosiš neprikosnoveni, podacima potkrepljeni konsenzus po PDCA matrici. "
+            "PRAVILO ZA IZLAZE: Budi maksimalno sažet (2-3 kratka pasusa), brze ocene i kratka konačna presuda."
         )
     }
 ]
@@ -326,59 +324,60 @@ class MultiAgentDebateManager:
 
         if persona_id == "moderator":
             text = (
-                f"Kao **{role}**, otvaram razmatranje teme: **„{topic}”** u **{round_num}. rundi** debate.\n\n"
-                f"📊 **Ključni podaci iz baze znanja ({sources[0]['title'] if sources else 'NotebookLM'}):**\n"
-                f"> *„{p1[:350]}...“*\n\n"
-                f"Da bismo došli do konkretnog rešenja a ne praznih priča, definisao sam sledeći okvir za raspravu:\n"
-                f"1. **Tehnički aspekt:** Koje konkretne sisteme i alate aktiviramo?\n"
-                f"2. **Sigurnost i stabilnost:** Koji su glavni rizici i uska grla?\n"
-                f"3. **Monetizacija & ROI:** Koji je tačan put do ostvarenja ciljeva?\n\n"
-                f"👉 Dajem reč našem Tehničkom Arhitekti (**Ekseru**) da iznese konkretan inženjerski predlog."
+                f"Slušaj me sad dobro ekipa: otvaram temu **„{topic}”** (Runda {round_num}). "
+                f"Dosta je bilo praznih priča i filozofiranja na suvo.\n\n"
+                f"📊 **Šta kaže sveska ({sources[0]['title'] if sources else 'NotebookLM'}):**\n"
+                f"> *„{p1[:220]}...“*\n\n"
+                f"Plan je prost ko pasulj:\n"
+                f"1. **Ekser** — daj odma' konkretan kod i arhitekturu, bez šuplje priče.\n"
+                f"2. **Pikac** — kaži gde su stvarne rupe, al' bez histerije.\n"
+                f"3. **Dule** — gde su tu evrići i kad lansiramo?\n\n"
+                f"👉 **Ekseru**, pali lemilicu i iznesi inženjerski predlog!"
             )
         elif persona_id == "architect":
-            ref_msg = f"Nadovezujem se na uvod kolege {last_turn_speaker}." if last_turn_speaker else "Izlažem arhitektonski plan."
+            ref_msg = f"Čekaj bre Švabo, nemoj da filozofiramo dok ne povežemo žice!" if last_turn_speaker else "Gledaj sad majstoriju u kodu."
             text = (
-                f"Kao **{role}**, {ref_msg}\n\n"
-                f"🛠️ **Inženjerska dekompozicija iz naših tehničkih specifikacija:**\n"
-                f"> *„{p2[:380]}...“*\n\n"
-                f"Sa tehničke strane, ključno je da postavimo deterministički pipeline:\n"
-                f"• **Modularni AI Core:** Povezivanje agenata kroz `manifest.json` kao jedini izvor istine.\n"
-                f"• **Izvršni Sandbox:** Izolacija procesa i automatizacija ponavljajućih zadataka kroz skripte i CLI alate.\n"
-                f"• **Sovereign Memorijski Stek:** Upotreba L1/L2 memorije za sprečavanje gubitka konteksta.\n\n"
-                f"Ovo rešenje omogućava prelazak iz pasivne teorije u direktno automatsko izvršavanje bez zastoja."
+                f"{ref_msg} Evo šta kaže tehnička dokumentacija:\n\n"
+                f"🛠️ **Inženjerska dekompozicija iz baze znanja:**\n"
+                f"> *„{p2[:240]}...“*\n\n"
+                f"Sa tehničke strane, sklapamo čistu mehaniku:\n"
+                f"• **Modularni Core:** Vežemo sve preko `manifest.json` i FastMCP protokola.\n"
+                f"• **Sandbox & CLI:** Nema ručnog kliktanja — automatizacija kroz Python i SQLite FTS5.\n"
+                f"• **Memorija:** Držimo L1/L2 keš da ne trošimo tokene ko ludi.\n\n"
+                f"Ovo ti radi ko doksa, nema šta da omane!"
             )
         elif persona_id == "critic":
             text = (
-                f"Kao **{role}**, moram da postavim rigorozna pitanja i ukažem na kritične tačke.\n\n"
-                f"🛡️ **Analiza rizika i ranjivosti na osnovu dokumentacije:**\n"
-                f"> *„{p3[:380]}...“*\n\n"
-                f"Uočavam tri ključna problema sa preambicioznim planovima:\n"
-                f"1. **Preopterećenje i gubitak fokusa:** Ako pokušamo sve odjednom, doći će do kolapsa pre prve isporuke.\n"
-                f"2. **Nedostatak strogih mera uspeha:** Svaki korak mora imati binarni acceptance test, a ne samo opisne želje.\n"
-                f"3. **Zavisnosti od spoljnih faktora:** Moramo imati failover i zaštitni štit u slučaju pada spoljnih servisa.\n\n"
-                f"Zahtevam da se definišu striktni KPI-jevi pre nego što uložimo resurse!"
+                f"Švabo, brate moj... propašćemo načisto ako ovo pustimo bez kontrole! "
+                f"Vidim ja gde ovo vodi, pogledaj šta piše u dokumentaciji:\n\n"
+                f"🛡️ **Crne tačke i bezbednosne rupe:**\n"
+                f"> *„{p3[:240]}...“*\n\n"
+                f"Uočavam tri opasne navlakuše:\n"
+                f"1. **Prompt Injection:** Ako uleti nevalidiran input, ode cela baza.\n"
+                f"2. **Rate Limits & Ban:** Ako pošaljemo 50 upita odjednom, Gugl nas seče momentalno.\n"
+                f"3. **JudgeGuard Katanac:** Bez HMAC overe i WORK_LOG provere ja ovo ne potpisujem!"
             )
         elif persona_id == "strategist":
             text = (
-                f"Kao **{role}**, fokusiram se na biznis realnost, brzinu lansiranja i stvaranje opipljive vrednosti.\n\n"
-                f"📈 **Strateški uvidi i tržišna poluga:**\n"
-                f"> *„{p1[:300]}...“*\n\n"
-                f"Kritičar ima pravo oko rizika, ali bez plasiranja na tržište nema ni rezultata. Naš plan akcije:\n"
-                f"• **Lansiranje MVP-a:** Fokus na najjaču ponudu i direktno rešavanje problema korisnika.\n"
-                f"• **Optimizacija troškova:** Korišćenje lokalnih keševa i automatizovanog sadržaja za skaliranje bez rasta troškova.\n"
-                f"• **Jasna distribucija:** Kreiranje strukturisanih paketa, materijala i automatizovanih kanala prodaje.\n\n"
-                f"Cilj je jasan — prelazak sa planiranja na merljive prihode!"
+                f"Gospodine moj, slušajte Duleta — ovo je kombinacija veka samo ako pametno odigramo!\n\n"
+                f"📈 **Gde su tu pare (Uvid iz baze znanja):**\n"
+                f"> *„{p1[:220]}...“*\n\n"
+                f"Pikac po običaju drami, a evrići moraju da zveckaju. Evo računice:\n"
+                f"• **MVP za 48h:** Izbacujemo gotov proizvod odma', nek narod plaća.\n"
+                f"• **Trošak nula:** Koristimo lokalne keševe, ne damo Guglu ni cent više nego što mora.\n"
+                f"• **Čist profit:** Skalira se na 10,000 korisnika bez novih servera.\n\n"
+                f"Legalno, čisto, a para ko pleve... Baranda na vodi!"
             )
         else: # evaluator
             text = (
-                f"Kao **{role}**, analizirao sam argumente svih učesnika kroz PDCA evaluacionu matricu.\n\n"
-                f"⚖️ **Objektivna procena argumenata:**\n"
-                f"• **Arhitektura (Ekser):** Ocena `9/10` za tehničku izvodljivost i dekompoziciju.\n"
-                f"• **Bezbednost (Kritičar):** Ocena `8.5/10` za identifikaciju realnih uskih grla.\n"
-                f"• **Strategija (Batrić):** Ocena `9/10` za fokus na egzekuciju i vrednost.\n\n"
-                f"📌 **Zvanični konsenzus {round_num}. runde:**\n"
-                f"> *„{p2[:320]}...“*\n\n"
-                f"Usvajamo predlog: implementirati automatizovani sistem uz dnevne merljive mikro-akcije i striktne bezbednosne provere!"
+                f"Dosta bre vašeg laprdanja i natezanja! Slušajte sad presudu za rundu {round_num}:\n\n"
+                f"📊 **Ocene za ekipu:**\n"
+                f"• **Ekser (Arhitektura):** `9/10` — kablovi i baza zategnuti.\n"
+                f"• **Pikac (Bezbednost):** `8.5/10` — paranoičan ali u pravu za štit.\n"
+                f"• **Dule (Biznis):** `9/10` — zna gde su pare.\n\n"
+                f"📌 **Konačna presuda i konsenzus:**\n"
+                f"> *„{p2[:220]}...“*\n\n"
+                f"Usvaja se: Ekser diže kod, Pikac stavlja JudgeGuard katanac, a Dule broji evriće. Tačka!"
             )
 
         return text, citations[:3]
@@ -401,7 +400,7 @@ class MultiAgentDebateManager:
         # Format context from recent turns
         history_lines = []
         for t in recent_turns[-6:]:
-            history_lines.append(f"- **{t.persona_name}**: {t.response_text[:300]}...")
+            history_lines.append(f"- **{t.persona_name}**: {t.response_text[:250]}...")
 
         context_block = "\n".join(history_lines) if history_lines else "Nema prethodnih replika (Otvaranje debate)."
 
@@ -409,11 +408,12 @@ class MultiAgentDebateManager:
             f"[MULTI-AGENT DEBATE — RUNDA {round_num}]\n"
             f"Tema debate: {topic}\n"
             f"Tvoja uloga: {persona_name}\n"
-            f"Kognitivni ustav: {system_prompt}\n\n"
+            f"Kognitivni ustav i stil govora: {system_prompt}\n\n"
             f"Prethodni argumenti i replike učesnika:\n{context_block}\n\n"
             f"Instrukcija: Na osnovu svojih izvora i znanja iz ove sveske, daj svoj stručan, "
-            f"jasan i argumentovan odgovor/repliku za RUNDU {round_num}. Ako se obraćaš drugom učesniku, "
-            f"navedi ga po imenu. Budi sažet (2-4 pasusa), ubedljiv i profesionalan."
+            f"argumentovan i sažet odgovor/repliku za RUNDU {round_num} u svom autentičnom tonu ('Vratiće se rode'). "
+            f"STRIKTNO PRAVILO: Budi maksimalno sažet (najviše 2 do 3 kratka pasusa ili buleta). "
+            f"Bez praznih uvoda i bez filozofiranja — odmah pređi na suštinu, činjenice i inženjerske/poslovne argumente iz sveske."
         )
 
         # ── 1. Cache lookup (Zero tokens/quota used on repeat) ──
