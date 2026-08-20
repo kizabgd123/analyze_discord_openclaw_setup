@@ -29,3 +29,7 @@
 2026-08-20T08:08:39Z | 🟡 Starting Start Auto-Resume Active Debates and Clean Chunking
 ✅ Completed Auto-Resume Active Debates and Clean Chunking
 2026-08-20T08:08:52Z | 🟡 Starting Verify Auto-Resume Active Debates and Clean Chunking Complete
+🟡 Starting Export Decision Record Artifact
+2026-08-20T08:19:10Z | 🟡 Starting Start Export Decision Record Artifact
+✅ Completed Export Decision Record Artifact
+2026-08-20T08:19:30Z | 🟡 Starting Verify Export Decision Record Artifact Complete

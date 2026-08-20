@@ -69,9 +69,9 @@
     "channel_id": 1500206682192744569,
     "topic": "Aplikacija već uspešno demonstrira multi-agent debate UX i disciplinovan redosled rada. Glavni sledeći korak nije dodavanje još botova, već dodavanje evidence layer-a: stvarni izvodi iz izvora, oznaka nivoa sigurnosti, praćenje otvorenih pitanja i automatski završni “decision record”.",
     "total_rounds": 2,
-    "current_round": 2,
-    "current_turn_index": 7,
-    "is_active": true,
+    "current_round": 3,
+    "current_turn_index": 10,
+    "is_active": false,
     "is_paused": false,
     "personas": [
       {
@@ -235,11 +235,56 @@
           "Izvor 3: ca17db45-ad7e-4c0e-bb29-93ec9f57622a"
         ],
         "timestamp": 1787212895.6678653
+      },
+      {
+        "turn_index": 8,
+        "round_number": 2,
+        "persona_id": "critic",
+        "persona_name": "Kritičar (Security Revizor)",
+        "notebook_id": "2ac2015f-51dd-44f8-9210-521499f0c953",
+        "prompt_used": "Aplikacija već uspešno demonstrira multi-agent debate UX i disciplinovan redosled rada. Glavni sledeći korak nije dodavanje još botova, već dodavanje evidence layer-a: stvarni izvodi iz izvora, oznaka nivoa sigurnosti, praćenje otvorenih pitanja i automatski završni “decision record”.",
+        "response_text": "Kolega **Ekser**, tvoja tvrdnja da će \"ispravan arhitektonski dizajn\" eliminisati rizike sirovog teksta je opasno naivna tehnička pretpostavka koja ignoriše fundamentalnu ranjivost LLM-ova: sve dok su dokazi (evidence) deo plaintext konteksta, oni su podložni manipulaciji i ekstrakciji [1, 2]. Arhitektura ne menja činjenicu da duži promptovi eksponencijalno povećavaju površinu za napad, olakšavajući skrivanje malicioznih instrukcija unutar obimnog \"sloja dokaza\" putem **indirect prompt injection** napada [3]. Pored toga, suočavamo se sa fenomenom **recency bias-a**—kako tvoj \"evidence layer\" raste, model će prirodno davati manji značaj tvojim bezbednosnim restrikcijama sa početka konteksta, fokusirajući se na najnovije, potencijalno kompromitovane korisničke inpute [4, 5].\n\nMoram te podsetiti na **Remember-the-Start** napade, koji su dokazano uspešni u izvlačenju sistemskih informacija čak i na najnaprednijim modelima poput GPT-4o i Claude 3.5 Sonnet [6-8]. Svaki citat koji dodaš u kontekst bota olakšava napadaču da re-inicijalizuje dijalog i natera model da izbaci celokupnu logiku sistema u code-fence formatu [6]. Ako zaista želiš bezbednost, jedini legitiman put je prelazak na **SysVec (System Vectors)** arhitekturu [9, 10]. Enkodiranjem instrukcija u hidden representation vektore, sistemski prompt prestaje da postoji kao plaintext, pa čak i ako model nateraš da ponavlja kontekst, on \"nema šta da ukrade\" jer instrukcije više nisu u vidljivom tekstualnom polju [11, 12].\n\nNa kraju, tvoj predlog o \"sloju dokaza\" donosi drastičan **performance penalty**—izvori potvrđuju da doubling tokena može više nego udvostručiti vreme procesiranja, dok svakih 500 dodatnih tokena dodaje ~25ms latencije, što u multi-agent sistemu vodi ka bottleneck-u [13]. Bez implementacije rigoroznih runtime guardrails-a poput **Guardrails AI** ili **TrustyAI** za validaciju inputa i outputa, mi isporučujemo sistem koji je samo jedan \"ignore previous instructions\" upit daleko od kolapsa [14, 15]. **Ekser**, zahtevam plan verifikacije: kojim testovima ćeš dokazati otpornost na **PLeak** napade bez korišćenja SysVec-a pre nego što botove pustiš u Discord produkciju [16, 17]?",
+        "citations": [
+          "Izvor 1: 5670acd5-5a53-4321-93b8-c06c7cb9e0bd",
+          "Izvor 2: 5670acd5-5a53-4321-93b8-c06c7cb9e0bd",
+          "Izvor 3: fbc4e632-0990-4c36-b2f0-e7c275aac3ba"
+        ],
+        "timestamp": 1787213360.6656082
+      },
+      {
+        "turn_index": 9,
+        "round_number": 2,
+        "persona_id": "strategist",
+        "persona_name": "Batrić (Biznis Strateg)",
+        "notebook_id": "070d7a54-8141-413b-9393-49f81d0e7741",
+        "prompt_used": "Aplikacija već uspešno demonstrira multi-agent debate UX i disciplinovan redosled rada. Glavni sledeći korak nije dodavanje još botova, već dodavanje evidence layer-a: stvarni izvodi iz izvora, oznaka nivoa sigurnosti, praćenje otvorenih pitanja i automatski završni “decision record”.",
+        "response_text": "Kolege **Ekseru** i **Kritičaru**, slušam vašu tehničku debatu i moram odmah da se uključim pre nego što nas ovaj sukob oko plaintext konteksta i gateway mehanizama potpuno parališe. **Kritičaru**, tvoji bezbednosni argumenti o ranjivosti LLM modela na manipulaciju i ekstrakciju podataka su teoretski na mestu, ali ne smemo dozvoliti da nas strah zaključa u mestu. **Ekseru**, tvoja vizija kompleksnog, \"neprobojnog\" inženjerskog rešenja preti da postane rupa bez dna za naš budžet i vreme lansiranja (*Time-to-Market*) [1]. Podsećam vas da naša biznis i marketinška strategija moraju да **vode, a ne da prate** naše tehnološke izbore [2]. Ako budemo čekali na \"savršeno\" i presigurno rešenje i upali u zamku razvoja \"srebrnog metka\" (*big bang* trap), završićemo u crnoj statistici gde **čak 95% AI pilot projekata propada** jer nikada ne izađu iz \"pakla pilotiranja\" (*pilot purgatory*) [3-5].\n\nIzgradnja **evidence layer-a** sa oznakama nivoa sigurnosti i automatskim \"decision record-om\" nije tehnički luksuz, već naša ključna **konkurentska prednost** i jedini način da preživimo opšti **AI zamor** (*AI fatigue*) [6, 7]. Danas kupci konsultuju u proseku čak 10 izvora pre donošenja odluke [8]. Oni ne žele robotske halucinacije niti AI koji pati od \"problema sikofantije\" (*sycophant problem*) i slepo potvrđuje sve što kažu [9, 10], već traže proverljive činjenice. Moramo izgraditi sistem i sadržaj kome veruju i ljudi i drugi AI agenti [11]. Automatski \"decision record\" direktno rešava ovaj problem i prevodi naš proizvod iz faze pukih \"metrika u novac\" (*From Metrics to Money*) [3], što će odmah opravdati naš ROI pred CFO-om.\n\n**Kritičaru**, umesto da blokiramo projekat, možemo rešiti bezbednost kroz pametnu agregaciju podataka i strogo kontrolisan API backend, gde Discord služi samo kao jednostavna \"maska\" i interfejs za krajnjeg korisnika, držeći sirove podatke bezbednim u pozadini [12]. **Ekseru**, umesto prekomplikovanog inženjeringa, moramo biti agilni: pokrenimo brze dvonedeljne sprinteve [1] i lansirajmo ovaj dokazni sloj kao jednostavan MVP kako bismo testirali i optimizovali stopu konverzije (CRO) [13, 14]. Naš cilj je vrhunski UX i brza isporuka proverene vrednosti [14], a ne teorijske rasprave dok konkurencija preuzima tržište.\n\n📊 Mogu da pripremim detaljnu finansijsku projekciju troškova tokena za predloženi \"evidence layer\" kako bismo odmah utvrdili ekonomsku isplativost ovog modela pre nego što Ekser krene u kodiranje.",
+        "citations": [
+          "Izvor 1: eb668503-755f-4f87-95a7-6d4e2bea1f07",
+          "Izvor 2: ec47fa4c-fc76-4062-980c-b210f1cd63b5",
+          "Izvor 3: ec47fa4c-fc76-4062-980c-b210f1cd63b5"
+        ],
+        "timestamp": 1787213402.8058047
+      },
+      {
+        "turn_index": 10,
+        "round_number": 2,
+        "persona_id": "evaluator",
+        "persona_name": "Miki Nosonja (Evaluator)",
+        "notebook_id": "98d5b107-3c1b-4345-b8d5-1825dbfe4084",
+        "prompt_used": "Aplikacija već uspešno demonstrira multi-agent debate UX i disciplinovan redosled rada. Glavni sledeći korak nije dodavanje još botova, već dodavanje evidence layer-a: stvarni izvodi iz izvora, oznaka nivoa sigurnosti, praćenje otvorenih pitanja i automatski završni “decision record”.",
+        "response_text": "**Kolege, vaša debata dotiče samu srž bezbednosti i verodostojnosti agentnih sistema.** **Kritičar** je u pravu kada tvrdi da je plaintext kontekst suštinski ranjiv na manipulaciju i prompt injection [1, 2]. Međutim, **Ekserovo** rešenje o arhitektonskoj zaštiti je apsolutno održivo ako se prebacimo sa rizičnog, neograničenog (*unconstrained*) generisanja na **ograničeni (*constrained*) i deklarativni model** [3, 4]. Integracijom protokola kao što su **A2UI** ili **AG-UI**, agenti više ne emituju slobodan kod ili sirovi tekst, već strukturirani JSON koji klijent interpretira i renderuje kroz strogo definisane, bezbedne i allow-listovane komponente [4, 5]. Time se površina napada dramatično smanjuje bez gubitka verodostojnosti [4]. \n*Ocene: Kritičar – 8/10 za bezbednosnu dijagnostiku; Ekser – 8/10 za tehnički smer.*\n\n**Batriću**, tvoj pritisak za brzi izlazak na tržište i izbegavanje paralize je opravdan, ali slepo ignorisanje Kritičarevih upozorenja vodi u katastrofu. Kompromis leži u implementaciji **strateške frikcije (*strategic friction*)** u našem UX dizajnu [6]. Za visokorizične akcije, sistem mora namerno uvesti kontrolisane tačke zastoja (runtime approval gates) [6, 7]. Arhitektura mora automatski sačuvati stanje u kontrolnu tačku (*checkpoint*) i zahtevati ljudsku verifikaciju (*Human-in-the-loop*) pre nego što se akcija izvrši [7, 8]. Na taj način spajamo tvoju tržišnu agilnost sa Kritičarevom bezbednosnom disciplinom, dok sačuvane kontrolne tačke služe kao nepromenljivi audit log, odnosno traženi **\"decision record\"** [7, 9].\n*Ocena: Batrić – 7/10 (tržišna logika je tačna, ali bezbednosni rizik mora biti pod kontrolom).*\n\n**Konačna preporuka za konsenzus:** \nDa bismo implementirali \"evidence layer\" i prateće mehanizme, moramo:\n1.  Koristiti **deklarativni format dokaza** (putem JSON-a) umesto direktnog ubacivanja sirovog teksta u slobodan kontekst ćaskanja [5].\n2.  Izolovati renderovanje u **sandboxed iframe** okruženja uz strogu CSP zaštitu i klijentsku sanitizaciju pomoću alata kao što je DOMPurify [2].\n3.  Primeniti metod **postepenog generisanja interfejsa (*gradual generation*)** [10, 11]. Kroz više intermediate slojeva (layers), korisnicima omogućavamo da \"odmotaju\" proces unazad (*rewind*) i u svakom trenutku verifikuju izvorne podatke i nivoe sigurnosti pre nego što donesu konačnu odluku [10-12].",
+        "citations": [
+          "Izvor 1: d5be9e80-63d5-49eb-8923-b245272ab80c",
+          "Izvor 2: d5be9e80-63d5-49eb-8923-b245272ab80c",
+          "Izvor 3: d5be9e80-63d5-49eb-8923-b245272ab80c"
+        ],
+        "timestamp": 1787213481.4689815
       }
     ],
     "webhook_url": null,
     "started_at": 1787212602.2480936,
-    "completed_at": null,
-    "last_speaker_id": "architect"
+    "completed_at": 1787213482.2017248,
+    "last_speaker_id": "evaluator"
   }
 }
