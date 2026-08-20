@@ -1293,11 +1293,11 @@ debate_group = app_commands.Group(
 @app_commands.describe(
     tema="Glavna tema, problem ili pitanje oko koga botovi debatuju",
     runde="Broj rundi debate (podrazumevano: 2 runde, max 5)",
-    moderator_sveska="Opciono: Sveska za Moderatora (Bibana)",
+    moderator_sveska="Opciono: Sveska za Moderatora (Švaba)",
     arhitekta_sveska="Opciono: Sveska za Tehničkog Arhitektu (Ekser)",
-    kriticar_sveska="Opciono: Sveska za Bezbednosnog Kritičara (Kritičar)",
-    strateg_sveska="Opciono: Sveska za Biznis Stratega (Batrić)",
-    evaluator_sveska="Opciono: Sveska za Data Evaluatora (Miki)"
+    kriticar_sveska="Opciono: Sveska za Bezbednosnog Skeptika (Pikac)",
+    strateg_sveska="Opciono: Sveska za Biznis Stratega (Dule Pacov)",
+    evaluator_sveska="Opciono: Sveska za Vrhovnog Sudiju (Babac)"
 )
 @app_commands.autocomplete(
     moderator_sveska=notebook_autocomplete,
@@ -1458,11 +1458,11 @@ async def debate_personas_slash(interaction: discord.Interaction):
     sveska="ID ili naziv Google NotebookLM sveske"
 )
 @app_commands.choices(persona=[
-    app_commands.Choice(name="🎙️ Bibana (Moderator)", value="moderator"),
+    app_commands.Choice(name="🎙️ Švaba (Glava & Moderator)", value="moderator"),
     app_commands.Choice(name="🛠️ Ekser (Tehnički Arhitekta)", value="architect"),
-    app_commands.Choice(name="🛡️ Kritičar (Bezbednosni Revizor)", value="critic"),
-    app_commands.Choice(name="📈 Batrić (Biznis Strateg)", value="strategist"),
-    app_commands.Choice(name="⚖️ Miki Nosonja (Evaluator)", value="evaluator")
+    app_commands.Choice(name="🛡️ Pikac (Bezbednosni Paranoik)", value="critic"),
+    app_commands.Choice(name="📈 Dule Pacov (Finansijski Guru)", value="strategist"),
+    app_commands.Choice(name="⚖️ Babac (Vrhovni Sudija)", value="evaluator")
 ])
 @app_commands.autocomplete(sveska=notebook_autocomplete)
 async def debate_setnotebook_slash(interaction: discord.Interaction, persona: str, sveska: str):
