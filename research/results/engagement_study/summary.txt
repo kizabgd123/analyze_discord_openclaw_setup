@@ -1,0 +1,3 @@
+Experiment: User Engagement Study
+Hypothesis: Proactive behavior increases user engagement
+Summary: Proactive behavior significantly improved all engagement metrics

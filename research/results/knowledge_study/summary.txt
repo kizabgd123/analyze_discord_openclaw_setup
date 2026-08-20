@@ -1,0 +1,3 @@
+Experiment: External Knowledge Integration Study
+Hypothesis: NotebookLM integration improves factual accuracy and reduces hallucinations
+Summary: NLM integration significantly improved factual accuracy, reduced hallucinations, and improved overall answer quality

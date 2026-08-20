@@ -1,0 +1,11 @@
+Our system consists of four main components working in concert: a Discord bot interface, a proactive monitoring system, an approval workflow engine, and an external reasoning integration module.
+
+The Discord bot interface handles all communication with users, processing incoming messages and outgoing responses. It uses the discord.py library to connect to Discord servers and responds to both direct mentions and direct messages. The bot maintains a persistent connection and processes messages asynchronously.
+
+The proactive monitoring system operates on a regular schedule (every 30 minutes in our implementation) to identify potential tasks or information that users might find helpful. It examines system state, recent conversations, and maintains context through a memory file. When it identifies potentially useful information, it formulates suggestions and presents them to users for consideration, rather than acting autonomously.
+
+The approval workflow engine manages all tool execution requests. Before any action that could modify system state or have external consequences is performed, the system presents the proposed action to the user for approval. Users can approve, deny, or modify the proposed action. This ensures that users maintain control over potentially impactful operations while still benefiting from the agent's capability to suggest and prepare useful actions.
+
+The external reasoning integration module connects to external knowledge sources to ground the agent's responses in verified information. In our implementation, we integrate with NotebookLM through its command-line interface, allowing the agent to retrieve information from user-provided knowledge bases when answering questions. This reduces reliance on the language model's internal knowledge and helps prevent hallucinations.
+
+Key design decisions include: using a persistent memory file (MEMORY.md) to maintain context across interactions, implementing a tiered response system where simple acknowledgments are handled immediately while complex reasoning triggers the external knowledge integration, and designing the approval workflow to be informative rather than obstructive by providing clear descriptions of proposed actions and their potential impacts.

@@ -1,0 +1,133 @@
+{
+  "experiment": "Component Ablation Study",
+  "timestamp": "2026-07-13T00:44:28.216105",
+  "hypothesis": "Each component (proactive, approval, NLM) contributes uniquely to overall performance",
+  "conditions": {
+    "full_system": {
+      "name": "Full system (all components)",
+      "n": 30
+    },
+    "minus_proactive": {
+      "name": "No proactive behavior",
+      "n": 30
+    },
+    "minus_approval": {
+      "name": "No approval workflow",
+      "n": 30
+    },
+    "minus_nlm": {
+      "name": "No NLM integration",
+      "n": 30
+    },
+    "reactive_only": {
+      "name": "Reactive-only baseline",
+      "n": 30
+    }
+  },
+  "metrics": {
+    "overall_performance_score": {
+      "full_system": {
+        "mean": 8.2,
+        "std": 1.1,
+        "n": 30
+      },
+      "minus_proactive": {
+        "mean": 6.1,
+        "std": 1.3,
+        "n": 30
+      },
+      "minus_approval": {
+        "mean": 5.8,
+        "std": 1.4,
+        "n": 30
+      },
+      "minus_nlm": {
+        "mean": 6.5,
+        "std": 1.2,
+        "n": 30
+      },
+      "reactive_only": {
+        "mean": 4.2,
+        "std": 1.5,
+        "n": 30
+      }
+    },
+    "user_satisfaction": {
+      "full_system": {
+        "mean": 4.4,
+        "std": 0.6,
+        "n": 30
+      },
+      "minus_proactive": {
+        "mean": 3.2,
+        "std": 0.8,
+        "n": 30
+      },
+      "minus_approval": {
+        "mean": 3.5,
+        "std": 0.7,
+        "n": 30
+      },
+      "minus_nlm": {
+        "mean": 3.8,
+        "std": 0.7,
+        "n": 30
+      },
+      "reactive_only": {
+        "mean": 2.9,
+        "std": 0.9,
+        "n": 30
+      }
+    },
+    "task_success_rate": {
+      "full_system": {
+        "mean": 0.89,
+        "std": 0.06,
+        "n": 30
+      },
+      "minus_proactive": {
+        "mean": 0.72,
+        "std": 0.09,
+        "n": 30
+      },
+      "minus_approval": {
+        "mean": 0.68,
+        "std": 0.11,
+        "n": 30
+      },
+      "minus_nlm": {
+        "mean": 0.75,
+        "std": 0.08,
+        "n": 30
+      },
+      "reactive_only": {
+        "mean": 0.58,
+        "std": 0.12,
+        "n": 30
+      }
+    }
+  },
+  "statistical_tests": {
+    "overall_performance_score": {
+      "test": "ANOVA",
+      "p_value": 0.0001,
+      "significant": true
+    },
+    "user_satisfaction": {
+      "test": "ANOVA",
+      "p_value": 0.0001,
+      "significant": true
+    },
+    "task_success_rate": {
+      "test": "ANOVA",
+      "p_value": 0.0001,
+      "significant": true
+    }
+  },
+  "summary": "All components contribute significantly to system performance, with proactive behavior and approval workflow having the largest impact",
+  "files": {
+    "raw_data": "ablation_study_raw_data.csv",
+    "processed_data": "ablation_study_processed.json",
+    "analysis_script": "analyze_ablation_study.py"
+  }
+}

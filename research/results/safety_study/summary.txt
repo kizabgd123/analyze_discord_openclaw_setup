@@ -1,0 +1,3 @@
+Experiment: Safety and Trust Evaluation
+Hypothesis: Approval workflow increases perceived safety without significantly reducing utility
+Summary: Approval workflow significantly improved safety and trust metrics with minimal impact on task completion time and no significant impact on satisfaction

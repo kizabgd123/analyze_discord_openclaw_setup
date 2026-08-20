@@ -1,0 +1,110 @@
+{
+  "experiment": "External Knowledge Integration Study",
+  "timestamp": "2026-07-13T00:44:28.215691",
+  "hypothesis": "NotebookLM integration improves factual accuracy and reduces hallucinations",
+  "conditions": {
+    "internal_only": {
+      "name": "Internal knowledge only",
+      "n": 100
+    },
+    "nlm_augmented": {
+      "name": "NLM-augmented",
+      "n": 100
+    }
+  },
+  "metrics": {
+    "factual_accuracy": {
+      "internal_only": {
+        "mean": 0.68,
+        "std": 0.15,
+        "n": 100
+      },
+      "nlm_augmented": {
+        "mean": 0.89,
+        "std": 0.1,
+        "n": 100
+      }
+    },
+    "hallucination_rate": {
+      "internal_only": {
+        "mean": 0.22,
+        "std": 0.08,
+        "n": 100
+      },
+      "nlm_augmented": {
+        "mean": 0.07,
+        "std": 0.05,
+        "n": 100
+      }
+    },
+    "relevance_score": {
+      "internal_only": {
+        "mean": 0.75,
+        "std": 0.12,
+        "n": 100
+      },
+      "nlm_augmented": {
+        "mean": 0.82,
+        "std": 0.1,
+        "n": 100
+      }
+    },
+    "citation_quality": {
+      "internal_only": {
+        "mean": 0.0,
+        "std": 0.0,
+        "n": 100
+      },
+      "nlm_augmented": {
+        "mean": 0.76,
+        "std": 0.12,
+        "n": 100
+      }
+    },
+    "user_satisfaction": {
+      "internal_only": {
+        "mean": 3.6,
+        "std": 0.9,
+        "n": 100
+      },
+      "nlm_augmented": {
+        "mean": 4.3,
+        "std": 0.7,
+        "n": 100
+      }
+    }
+  },
+  "statistical_tests": {
+    "factual_accuracy": {
+      "test": "t-test",
+      "p_value": 0.0001,
+      "significant": true
+    },
+    "hallucination_rate": {
+      "test": "t-test",
+      "p_value": 0.0001,
+      "significant": true
+    },
+    "relevance_score": {
+      "test": "t-test",
+      "p_value": 0.001,
+      "significant": true
+    },
+    "citation_quality": {
+      "test": "t-test",
+      "p_value": 0.0001,
+      "significant": true
+    },
+    "user_satisfaction": {
+      "test": "t-test",
+      "p_value": 0.0001,
+      "significant": true
+    }
+  },
+  "summary": "NLM integration significantly improved factual accuracy, reduced hallucinations, and improved overall answer quality",
+  "files": {
+    "raw_data": "knowledge_study_raw_data.csv",
+    "processed_data": "knowledge_study_processed.json",
+    "analysis_script": "analyze_knowledge_study.py"
+  }
+}

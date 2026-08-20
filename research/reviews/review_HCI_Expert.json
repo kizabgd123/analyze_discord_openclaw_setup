@@ -1,0 +1,34 @@
+{
+  "summary": "The paper addresses an important HCI problem: how to design AI agents that are both helpful and safe in interactive environments. The user studies are well-designed and provide valuable insights into user perceptions of safety and control.",
+  "strengths": [
+    "Strong user-centered evaluation approach",
+    "Good use of both between-subjects and within-subjects designs",
+    "Clear measurement of both objective performance and subjective experience",
+    "Thoughtful discussion of the trade-off between safety and utility",
+    "Well-motivated design choices based on user needs"
+  ],
+  "weaknesses": [
+    "Limited demographic information about study participants",
+    "No exploration of individual differences in response to the system",
+    "The approval workflow interface could be described in more detail",
+    "Missing discussion of learnability - how users' behavior changes over time",
+    "Could benefit from qualitative feedback from users about their experience"
+  ],
+  "questions": [
+    "How long did it take users to become comfortable with the approval workflow?",
+    "Did users develop any workarounds or strategies to minimize approval overhead?",
+    "Were there any differences in how different user groups (e.g., moderators vs regular members) responded to the system?",
+    "How did users perceive the proactive suggestions - as helpful or intrusive?",
+    "What was the approval rate for different types of suggested actions?"
+  ],
+  "missing_references": [
+    "Work on trust calibration in human-AI interaction",
+    "Studies on notification timing and user interruption costs",
+    "Research on explainable AI and user understanding of system behavior"
+  ],
+  "soundness": 3,
+  "presentation": 4,
+  "contribution": 4,
+  "overall": 8,
+  "confidence": 3
+}

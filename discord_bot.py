@@ -24,11 +24,12 @@ from dotenv import load_dotenv
 try:
     from brain_core import BrainCore
     from judge_guard import JudgeGuard
+    from debate_engine import MultiAgentDebateManager, DEFAULT_PERSONAS, DebateSession
     _BRAIN_AVAILABLE = True
 except ImportError as _brain_import_err:
     _BRAIN_AVAILABLE = False
     logging.getLogger("DiscordNotebookLM").warning(
-        f"BrainCore/JudgeGuard not available: {_brain_import_err}"
+        f"Cognitive modules import issue: {_brain_import_err}"
     )
 
 # ── 1. CONFIGURATION & STARTUP VALIDATION ──
@@ -265,13 +266,14 @@ class NotebookLMEngine:
 
 # ── 4. STATE & HELPERS ──
 nlm = NotebookLMEngine()
+debate_mgr = MultiAgentDebateManager(nlm_bin=NLM_BIN)
 
 # Antigravity 2.0 — cognitive singletons (loaded after .env is applied)
 if _BRAIN_AVAILABLE:
     _JUDGE_SECRET = os.getenv("JUDGE_HMAC_SECRET", "openclaw-dev-secret")
     brain = BrainCore(default_notebook_id=DEFAULT_NOTEBOOK_ID)
     judge = JudgeGuard(secret=_JUDGE_SECRET)
-    logger.info("✅ BrainCore + JudgeGuard singletons aktivni")
+    logger.info("✅ BrainCore + JudgeGuard + DebateEngine singletons aktivni")
 else:
     brain = None  # type: ignore
     judge = None  # type: ignore
@@ -534,6 +536,151 @@ class ExecApprovalView(discord.ui.View):
             await interaction.response.send_message("Samo ti možeš da otkažeš komandu.", ephemeral=True)
             return
         await interaction.response.edit_message(content="❌ Komanda odbijena.", view=None)
+
+
+class DebateControlView(discord.ui.View):
+    """Interactive Action Row for controlling multi-agent debate in Discord."""
+    def __init__(self, channel_id: int):
+        super().__init__(timeout=None)
+        self.channel_id = channel_id
+
+    @discord.ui.button(label="Pauziraj", style=discord.ButtonStyle.secondary, emoji="⏸️", custom_id="debate_pause")
+    async def pause_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        success = debate_mgr.pause_debate(self.channel_id)
+        if success:
+            await interaction.response.send_message("⏸️ **Debata je pauzirana.** Klikni `▶️ Nastavi` ili `/debate control resume` kada želiš da se rasprava nastavi.", ephemeral=False)
+        else:
+            await interaction.response.send_message("ℹ️ Nema aktivne debate koja se može pauzirati.", ephemeral=True)
+
+    @discord.ui.button(label="Nastavi", style=discord.ButtonStyle.success, emoji="▶️", custom_id="debate_resume")
+    async def resume_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        session = debate_mgr.get_session(self.channel_id)
+        if not session or not session.is_paused:
+            await interaction.response.send_message("ℹ️ Debata nije na pauzi.", ephemeral=True)
+            return
+        await interaction.response.send_message("▶️ **Debata se nastavlja!** Sledeći govornik preuzima reč...", ephemeral=False)
+        debate_mgr.resume_debate(bot, self.channel_id)
+
+    @discord.ui.button(label="Sledeći Govornik", style=discord.ButtonStyle.primary, emoji="⏭️", custom_id="debate_next")
+    async def next_turn_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        session = debate_mgr.get_session(self.channel_id)
+        if not session or not session.is_active:
+            await interaction.response.send_message("ℹ️ Nema aktivne debate.", ephemeral=True)
+            return
+        await interaction.response.send_message("⏭️ **Prozivam sledećeg govornika...**", ephemeral=False)
+        asyncio.create_task(debate_mgr.execute_turn(bot, self.channel_id))
+
+    @discord.ui.button(label="Zaustavi", style=discord.ButtonStyle.danger, emoji="🛑", custom_id="debate_stop")
+    async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        stopped = debate_mgr.stop_debate(self.channel_id)
+        if stopped:
+            await interaction.response.send_message("🛑 **Debata je uspešno zaustavljena.**", ephemeral=False)
+        else:
+            await interaction.response.send_message("ℹ️ Nema aktivne debate.", ephemeral=True)
+
+    @discord.ui.button(label="Status / Pregled", style=discord.ButtonStyle.secondary, emoji="📊", custom_id="debate_status")
+    async def status_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        session = debate_mgr.get_session(self.channel_id)
+        if not session:
+            await interaction.response.send_message("ℹ️ Nema podataka o debati u ovom kanalu.", ephemeral=True)
+            return
+
+        status_text = "🟢 Aktivna" if session.is_active and not session.is_paused else ("⏸️ Na pauzi" if session.is_paused else "🏁 Završena")
+        embed = discord.Embed(
+            title="📊 Status Multi-Agent Debate",
+            description=f"**Tema:** {session.topic}\n**Status:** {status_text}\n**Runda:** `{session.current_round}/{session.total_rounds}`\n**Ukupno replika:** `{len(session.turns)}`",
+            color=0x4285F4
+        )
+        for p in session.personas:
+            embed.add_field(
+                name=f"{p['name']} ({p['role']})",
+                value=f"• Sveska: `{p.get('notebook_title', 'Google NLM')}`\n• ID: `{p['default_notebook_id'][:12]}...`",
+                inline=False
+            )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+class AssignPersonaNotebookModal(discord.ui.Modal):
+    def __init__(self, channel_id: int, persona_id: str, persona_name: str, current_nb: str):
+        super().__init__(title=f"📚 {persona_name[:25]}")
+        self.channel_id = channel_id
+        self.persona_id = persona_id
+
+        self.nb_input = discord.ui.TextInput(
+            label="Google NotebookLM ID ili Alias",
+            placeholder="Unesi UUID sveske (npr. bf77f7c8-ae62-4eac-b6e5...)",
+            default=current_nb,
+            required=True,
+            max_length=64
+        )
+        self.add_item(self.nb_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        new_id = self.nb_input.value.strip()
+        title = nlm.get_cached_title(new_id)
+        success = debate_mgr.set_persona_notebook(
+            channel_id=self.channel_id,
+            persona_id=self.persona_id,
+            notebook_id=new_id,
+            notebook_title=title
+        )
+        if success:
+            await interaction.response.send_message(
+                f"✅ **Sveska je promenjena za bot personu!**\n"
+                f"Persona ID: `{self.persona_id}`\n"
+                f"Nova sveska: **{title}** (`{new_id}`)",
+                ephemeral=True
+            )
+        else:
+            await interaction.response.send_message(
+                f"⚠️ Prvo pokreni ili kreiraj debatu u ovom kanalu preko `/debate start`!",
+                ephemeral=True
+            )
+
+
+class DebatePersonaSelectDropdown(discord.ui.Select):
+    def __init__(self, channel_id: int, personas: List[Dict[str, Any]]):
+        self.channel_id = channel_id
+        self.personas_map = {p["id"]: p for p in personas}
+
+        options = []
+        for p in personas:
+            options.append(
+                discord.SelectOption(
+                    label=p["name"][:100],
+                    value=p["id"],
+                    description=f"{p['role'][:40]} | {p.get('notebook_title', '')[:40]}",
+                    emoji="🤖"
+                )
+            )
+
+        super().__init__(
+            placeholder="Izaberi bot personu da promeniš dodeljeni NotebookLM...",
+            min_values=1,
+            max_values=1,
+            options=options
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        persona_id = self.values[0]
+        persona = self.personas_map.get(persona_id)
+        if not persona:
+            await interaction.response.send_message("Persona nije pronađena.", ephemeral=True)
+            return
+
+        modal = AssignPersonaNotebookModal(
+            channel_id=self.channel_id,
+            persona_id=persona_id,
+            persona_name=persona["name"],
+            current_nb=persona.get("default_notebook_id", "")
+        )
+        await interaction.response.send_modal(modal)
+
+
+class DebatePersonaSelectView(discord.ui.View):
+    def __init__(self, channel_id: int, personas: List[Dict[str, Any]]):
+        super().__init__(timeout=180)
+        self.add_item(DebatePersonaSelectDropdown(channel_id, personas))
 
 # ── 6. DISCORD BOT SETUP & AUTOCOMPLETE ──
 intents = discord.Intents.default()
@@ -944,9 +1091,21 @@ async def help_slash(interaction: discord.Interaction):
         inline=False
     )
     embed.add_field(
+        name="🎙️ Multi-Agent Debata (5 Botova)",
+        value=(
+            "• `/debate start <tema>` — Pokreni debatu između 5 botova sa različitim sveskama\n"
+            "• `/debate control <akcija>` — Pauziraj, nastavi, preskoči ili zaustavi debatu\n"
+            "• `/debate status` — Trenutno stanje, aktivni govornik i dodeljene sveske\n"
+            "• `/debate personas` — Pregled 5 persona i dodeljivanje svezaka\n"
+            "• `/debate setnotebook` — Dodeli specifičnu svesku određenoj bot personi"
+        ),
+        inline=False
+    )
+    embed.add_field(
         name="⚙️ Dijagnostika i Sistem",
         value=(
             "• `/status` — Provera Google autentifikacije i latencije\n"
+            "• `/execute <task>` — Autonomni kognitivni task kroz BrainCore + JudgeGuard\n"
             "• `/sh <komanda>` — Bezbedno izvršavanje shell komande uz odobrenje"
         ),
         inline=False
@@ -1115,7 +1274,294 @@ async def execute_slash(
         halt_embed.add_field(name="📊 Confidence", value=f"`{confidence:.0%}`", inline=True)
         await status_msg.edit(embed=halt_embed)
 
+# ── 9B. MULTI-AGENT DEBATE SLASH COMMANDS (/debate) ──
+debate_group = app_commands.Group(
+    name="debate",
+    description="🎙️ Multi-Agent debata između 5 botova sa posebnim NotebookLM sveskama"
+)
+
+@debate_group.command(
+    name="start",
+    description="🚀 Pokreni strukturisanu debatu između 5 botova sa posebnim sveskama"
+)
+@app_commands.describe(
+    tema="Glavna tema, problem ili pitanje oko koga botovi debatuju",
+    runde="Broj rundi debate (podrazumevano: 2 runde, max 5)",
+    moderator_sveska="Opciono: Sveska za Moderatora (Bibana)",
+    arhitekta_sveska="Opciono: Sveska za Tehničkog Arhitektu (Ekser)",
+    kriticar_sveska="Opciono: Sveska za Bezbednosnog Kritičara (Kritičar)",
+    strateg_sveska="Opciono: Sveska za Biznis Stratega (Batrić)",
+    evaluator_sveska="Opciono: Sveska za Data Evaluatora (Miki)"
+)
+@app_commands.autocomplete(
+    moderator_sveska=notebook_autocomplete,
+    arhitekta_sveska=notebook_autocomplete,
+    kriticar_sveska=notebook_autocomplete,
+    strateg_sveska=notebook_autocomplete,
+    evaluator_sveska=notebook_autocomplete
+)
+async def debate_start_slash(
+    interaction: discord.Interaction,
+    tema: str,
+    runde: Optional[int] = 2,
+    moderator_sveska: Optional[str] = None,
+    arhitekta_sveska: Optional[str] = None,
+    kriticar_sveska: Optional[str] = None,
+    strateg_sveska: Optional[str] = None,
+    evaluator_sveska: Optional[str] = None
+):
+    await interaction.response.defer()
+    channel_id = interaction.channel_id
+
+    custom_nbs = {}
+    if moderator_sveska: custom_nbs["moderator"] = moderator_sveska
+    if arhitekta_sveska: custom_nbs["architect"] = arhitekta_sveska
+    if kriticar_sveska: custom_nbs["critic"] = kriticar_sveska
+    if strateg_sveska: custom_nbs["strategist"] = strateg_sveska
+    if evaluator_sveska: custom_nbs["evaluator"] = evaluator_sveska
+
+    session = debate_mgr.create_session(
+        channel_id=channel_id,
+        topic=tema,
+        rounds=runde or 2,
+        custom_notebooks=custom_nbs
+    )
+
+    # Resolve friendly titles for personas
+    for p in session.personas:
+        p["notebook_title"] = nlm.get_cached_title(p["default_notebook_id"])
+
+    # Intro embed
+    embed = discord.Embed(
+        title="🎙️ MULTI-AGENT DEBATA POKRENUTA",
+        description=f"**Tema:** {tema}\n**Broj Rundi:** `{session.total_rounds}`\n**Broj Učesnika:** `5 Botova sa zasebnim Google NotebookLM sveskama`",
+        color=0x4285F4
+    )
+    for p in session.personas:
+        embed.add_field(
+            name=f"{p['name']}",
+            value=f"• Uloga: *{p['role']}*\n• Sveska: **{p['notebook_title']}** (`{p['default_notebook_id'][:8]}...`)",
+            inline=False
+        )
+    embed.set_footer(text="OpenClaw Sovereign AI OS • Google NotebookLM Engine")
+
+    control_view = DebateControlView(channel_id)
+    await interaction.followup.send(embed=embed, view=control_view)
+
+    debate_mgr.start_debate(bot, channel_id)
+
+
+@debate_group.command(
+    name="status",
+    description="📊 Prikaži trenutni status, aktivnog govornika i sveske u debati"
+)
+async def debate_status_slash(interaction: discord.Interaction):
+    session = debate_mgr.get_session(interaction.channel_id)
+    if not session:
+        await interaction.response.send_message("ℹ️ Nema aktivne ili sačuvane debate u ovom kanalu. Pokreni novu sa `/debate start`.", ephemeral=True)
+        return
+
+    status_str = "🟢 Aktivna" if session.is_active and not session.is_paused else ("⏸️ Pauzirana" if session.is_paused else "🏁 Završena")
+    embed = discord.Embed(
+        title="📊 Multi-Agent Debata — Trenutni Status",
+        description=(
+            f"**Tema:** {session.topic}\n"
+            f"**Status:** {status_str}\n"
+            f"**Runda:** `{session.current_round} / {session.total_rounds}`\n"
+            f"**Ukupno izlaganja:** `{len(session.turns)}`"
+        ),
+        color=0x34A853 if session.is_active else 0xFBBC05
+    )
+    for p in session.personas:
+        is_current = session.is_active and session.last_speaker_id == p["id"]
+        prefix = "👉 " if is_current else "• "
+        embed.add_field(
+            name=f"{prefix}{p['name']}",
+            value=f"*{p['role']}*\nSveska: **{p.get('notebook_title', 'Google NLM')}** (`{p['default_notebook_id'][:8]}...`)",
+            inline=False
+        )
+
+    view = DebateControlView(interaction.channel_id) if session.is_active else None
+    await interaction.response.send_message(embed=embed, view=view)
+
+
+@debate_group.command(
+    name="control",
+    description="⚙️ Kontrola toka debate (pauza, nastavak, sledeći govornik, zaustavljanje)"
+)
+@app_commands.describe(akcija="Akcija za izvršavanje")
+@app_commands.choices(akcija=[
+    app_commands.Choice(name="⏸️ Pauziraj (pause)", value="pause"),
+    app_commands.Choice(name="▶️ Nastavi (resume)", value="resume"),
+    app_commands.Choice(name="⏭️ Sledeći govornik (next)", value="next"),
+    app_commands.Choice(name="🛑 Zaustavi debatu (stop)", value="stop")
+])
+async def debate_control_slash(interaction: discord.Interaction, akcija: str):
+    ch_id = interaction.channel_id
+    if akcija == "pause":
+        if debate_mgr.pause_debate(ch_id):
+            await interaction.response.send_message("⏸️ **Debata je pauzirana.**")
+        else:
+            await interaction.response.send_message("ℹ️ Nema aktivne debate za pauziranje.", ephemeral=True)
+    elif akcija == "resume":
+        if debate_mgr.resume_debate(bot, ch_id):
+            await interaction.response.send_message("▶️ **Debata je nastavljena.**")
+        else:
+            await interaction.response.send_message("ℹ️ Debata nije bila na pauzi.", ephemeral=True)
+    elif akcija == "next":
+        await interaction.response.send_message("⏭️ **Pokrećem sledeći krug izlaganja...**")
+        asyncio.create_task(debate_mgr.execute_turn(bot, ch_id))
+    elif akcija == "stop":
+        if debate_mgr.stop_debate(ch_id):
+            await interaction.response.send_message("🛑 **Debata je zaustavljena.**")
+        else:
+            await interaction.response.send_message("ℹ️ Nema aktivne debate.", ephemeral=True)
+
+
+@debate_group.command(
+    name="personas",
+    description="🤖 Pregledaj i konfiguriši 5 bot persona i njihove NotebookLM sveske"
+)
+async def debate_personas_slash(interaction: discord.Interaction):
+    session = debate_mgr.get_session(interaction.channel_id)
+    personas = session.personas if session else DEFAULT_PERSONAS
+
+    embed = discord.Embed(
+        title="🤖 Multi-Agent Flota — 5 Kognitivnih Persona",
+        description="Svaka bot persona ima specifičan kognitivni ustav i dodeljenu Google NotebookLM svesku:",
+        color=0x4285F4
+    )
+    for p in personas:
+        t = p.get("notebook_title") or nlm.get_cached_title(p["default_notebook_id"])
+        embed.add_field(
+            name=f"{p['name']} (`{p['id']}`)",
+            value=f"• **Uloga:** {p['role']}\n• **Sveska:** {t} (`{p['default_notebook_id'][:12]}...`)",
+            inline=False
+        )
+
+    view = DebatePersonaSelectView(interaction.channel_id, personas)
+    await interaction.response.send_message(embed=embed, view=view)
+
+
+@debate_group.command(
+    name="setnotebook",
+    description="📚 Dodeli određeni Google NotebookLM jednoj od 5 bot persona"
+)
+@app_commands.describe(
+    persona="Izaberi bot personu",
+    sveska="ID ili naziv Google NotebookLM sveske"
+)
+@app_commands.choices(persona=[
+    app_commands.Choice(name="🎙️ Bibana (Moderator)", value="moderator"),
+    app_commands.Choice(name="🛠️ Ekser (Tehnički Arhitekta)", value="architect"),
+    app_commands.Choice(name="🛡️ Kritičar (Bezbednosni Revizor)", value="critic"),
+    app_commands.Choice(name="📈 Batrić (Biznis Strateg)", value="strategist"),
+    app_commands.Choice(name="⚖️ Miki Nosonja (Evaluator)", value="evaluator")
+])
+@app_commands.autocomplete(sveska=notebook_autocomplete)
+async def debate_setnotebook_slash(interaction: discord.Interaction, persona: str, sveska: str):
+    title = nlm.get_cached_title(sveska)
+    success = debate_mgr.set_persona_notebook(interaction.channel_id, persona, sveska, title)
+    if success:
+        await interaction.response.send_message(
+            f"✅ **Dodeljena nova sveska!**\nPersona: `{persona}`\nSveska: **{title}** (`{sveska}`)"
+        )
+    else:
+        await interaction.response.send_message(
+            f"ℹ️ Prvo inicijalizuj debatu sa `/debate start`, a zatim možeš prilagođavati sveske.",
+            ephemeral=True
+        )
+
+bot.tree.add_command(debate_group)
+
 # ── 10. PREFIX COMMANDS COMPATIBILITY (ZA `!` PREFIKS) ──
+
+@bot.group(name="debate", invoke_without_command=True)
+async def debate_prefix_group(ctx):
+    embed = discord.Embed(
+        title="🎙️ Multi-Agent Debata Komande",
+        description="Dostupne komande za debatu sa 5 botova:\n"
+                    "• `!debate start <tema>` — Pokreni debatu\n"
+                    "• `!debate pause` — Pauziraj\n"
+                    "• `!debate resume` — Nastavi\n"
+                    "• `!debate next` — Sledeći govornik\n"
+                    "• `!debate stop` — Zaustavi debatu\n"
+                    "• `!debate status` — Trenutno stanje\n"
+                    "• `!debate personas` — Prikaz 5 persona i svezaka",
+        color=0x4285F4
+    )
+    await ctx.send(embed=embed)
+
+@debate_prefix_group.command(name="start")
+async def debate_start_prefix(ctx, *, tema: str):
+    session = debate_mgr.create_session(channel_id=ctx.channel.id, topic=tema, rounds=2)
+    for p in session.personas:
+        p["notebook_title"] = nlm.get_cached_title(p["default_notebook_id"])
+
+    embed = discord.Embed(
+        title="🎙️ MULTI-AGENT DEBATA POKRENUTA",
+        description=f"**Tema:** {tema}\n**Broj Rundi:** `{session.total_rounds}`\n**Broj Učesnika:** `5 Botova sa zasebnim sveskama`",
+        color=0x4285F4
+    )
+    for p in session.personas:
+        embed.add_field(
+            name=f"{p['name']}",
+            value=f"• Uloga: *{p['role']}*\n• Sveska: **{p['notebook_title']}** (`{p['default_notebook_id'][:8]}...`)",
+            inline=False
+        )
+    await ctx.send(embed=embed, view=DebateControlView(ctx.channel.id))
+    debate_mgr.start_debate(bot, ctx.channel.id)
+
+@debate_prefix_group.command(name="pause")
+async def debate_pause_prefix(ctx):
+    if debate_mgr.pause_debate(ctx.channel.id):
+        await ctx.send("⏸️ **Debata je pauzirana.**")
+    else:
+        await ctx.send("ℹ️ Nema aktivne debate.")
+
+@debate_prefix_group.command(name="resume")
+async def debate_resume_prefix(ctx):
+    if debate_mgr.resume_debate(bot, ctx.channel.id):
+        await ctx.send("▶️ **Debata se nastavlja.**")
+    else:
+        await ctx.send("ℹ️ Debata nije bila pauzirana.")
+
+@debate_prefix_group.command(name="next")
+async def debate_next_prefix(ctx):
+    await ctx.send("⏭️ **Prozivam sledećeg govornika...**")
+    asyncio.create_task(debate_mgr.execute_turn(bot, ctx.channel.id))
+
+@debate_prefix_group.command(name="stop")
+async def debate_stop_prefix(ctx):
+    if debate_mgr.stop_debate(ctx.channel.id):
+        await ctx.send("🛑 **Debata je zaustavljena.**")
+    else:
+        await ctx.send("ℹ️ Nema aktivne debate.")
+
+@debate_prefix_group.command(name="status")
+async def debate_status_prefix(ctx):
+    session = debate_mgr.get_session(ctx.channel.id)
+    if not session:
+        await ctx.send("ℹ️ Nema aktivne debate u ovom kanalu.")
+        return
+    embed = discord.Embed(
+        title="📊 Status Debate",
+        description=f"**Tema:** {session.topic}\n**Runda:** `{session.current_round}/{session.total_rounds}`",
+        color=0x4285F4
+    )
+    for p in session.personas:
+        embed.add_field(name=p["name"], value=f"Sveska: `{p['default_notebook_id'][:12]}...`", inline=False)
+    await ctx.send(embed=embed, view=DebateControlView(ctx.channel.id) if session.is_active else None)
+
+@debate_prefix_group.command(name="personas")
+async def debate_personas_prefix(ctx):
+    session = debate_mgr.get_session(ctx.channel.id)
+    personas = session.personas if session else DEFAULT_PERSONAS
+    embed = discord.Embed(title="🤖 5 Bot Persona u Debati", color=0x4285F4)
+    for p in personas:
+        t = p.get("notebook_title") or nlm.get_cached_title(p["default_notebook_id"])
+        embed.add_field(name=p["name"], value=f"• {p['role']}\n• Sveska: **{t}**", inline=False)
+    await ctx.send(embed=embed, view=DebatePersonaSelectView(ctx.channel.id, personas))
 
 @bot.command(name="ask", aliases=["q", "nlm", "chat"])
 async def ask_prefix(ctx, *, question: str):

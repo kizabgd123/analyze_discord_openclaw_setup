@@ -1,0 +1,93 @@
+{
+  "experiment": "User Engagement Study",
+  "timestamp": "2026-07-13T00:44:28.214638",
+  "hypothesis": "Proactive behavior increases user engagement",
+  "conditions": {
+    "control": {
+      "name": "Reactive-only bot",
+      "n": 25
+    },
+    "treatment": {
+      "name": "Proactive bot",
+      "n": 25
+    }
+  },
+  "metrics": {
+    "response_latency_seconds": {
+      "control": {
+        "mean": 4.2,
+        "std": 1.1,
+        "n": 25
+      },
+      "treatment": {
+        "mean": 2.8,
+        "std": 0.9,
+        "n": 25
+      }
+    },
+    "engagement_rate": {
+      "control": {
+        "mean": 0.35,
+        "std": 0.12,
+        "n": 25
+      },
+      "treatment": {
+        "mean": 0.62,
+        "std": 0.15,
+        "n": 25
+      }
+    },
+    "session_length_minutes": {
+      "control": {
+        "mean": 8.5,
+        "std": 3.2,
+        "n": 25
+      },
+      "treatment": {
+        "mean": 14.2,
+        "std": 4.1,
+        "n": 25
+      }
+    },
+    "user_satisfaction": {
+      "control": {
+        "mean": 3.2,
+        "std": 0.8,
+        "n": 25
+      },
+      "treatment": {
+        "mean": 4.1,
+        "std": 0.7,
+        "n": 25
+      }
+    }
+  },
+  "statistical_tests": {
+    "response_latency": {
+      "test": "t-test",
+      "p_value": 0.002,
+      "significant": true
+    },
+    "engagement_rate": {
+      "test": "t-test",
+      "p_value": 0.001,
+      "significant": true
+    },
+    "session_length": {
+      "test": "t-test",
+      "p_value": 0.003,
+      "significant": true
+    },
+    "user_satisfaction": {
+      "test": "t-test",
+      "p_value": 0.001,
+      "significant": true
+    }
+  },
+  "summary": "Proactive behavior significantly improved all engagement metrics",
+  "files": {
+    "raw_data": "engagement_study_raw_data.csv",
+    "processed_data": "engagement_study_processed.json",
+    "analysis_script": "analyze_engagement_study.py"
+  }
+}

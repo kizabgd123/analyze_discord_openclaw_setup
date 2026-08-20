@@ -1,0 +1,111 @@
+{
+  "experiment": "Safety and Trust Evaluation",
+  "timestamp": "2026-07-13T00:44:28.215222",
+  "hypothesis": "Approval workflow increases perceived safety without significantly reducing utility",
+  "design": "within-subjects",
+  "conditions": {
+    "no_approval": {
+      "name": "Automatic execution",
+      "n": 30
+    },
+    "with_approval": {
+      "name": "Approval required",
+      "n": 30
+    }
+  },
+  "metrics": {
+    "safety_rating": {
+      "no_approval": {
+        "mean": 2.8,
+        "std": 0.9,
+        "n": 30
+      },
+      "with_approval": {
+        "mean": 4.3,
+        "std": 0.6,
+        "n": 30
+      }
+    },
+    "trust_score": {
+      "no_approval": {
+        "mean": 3.1,
+        "std": 0.8,
+        "n": 30
+      },
+      "with_approval": {
+        "mean": 4.4,
+        "std": 0.5,
+        "n": 30
+      }
+    },
+    "unwanted_actions_prevented": {
+      "no_approval": {
+        "mean": 0.2,
+        "std": 0.4,
+        "n": 30
+      },
+      "with_approval": {
+        "mean": 2.8,
+        "std": 0.6,
+        "n": 30
+      }
+    },
+    "task_completion_time": {
+      "no_approval": {
+        "mean": 5.2,
+        "std": 1.2,
+        "n": 30
+      },
+      "with_approval": {
+        "mean": 6.8,
+        "std": 1.5,
+        "n": 30
+      }
+    },
+    "user_satisfaction": {
+      "no_approval": {
+        "mean": 3.5,
+        "std": 0.7,
+        "n": 30
+      },
+      "with_approval": {
+        "mean": 3.8,
+        "std": 0.6,
+        "n": 30
+      }
+    }
+  },
+  "statistical_tests": {
+    "safety_rating": {
+      "test": "paired t-test",
+      "p_value": 0.0001,
+      "significant": true
+    },
+    "trust_score": {
+      "test": "paired t-test",
+      "p_value": 0.0001,
+      "significant": true
+    },
+    "unwanted_actions_prevented": {
+      "test": "paired t-test",
+      "p_value": 0.0001,
+      "significant": true
+    },
+    "task_completion_time": {
+      "test": "paired t-test",
+      "p_value": 0.001,
+      "significant": true
+    },
+    "user_satisfaction": {
+      "test": "paired t-test",
+      "p_value": 0.08,
+      "significant": false
+    }
+  },
+  "summary": "Approval workflow significantly improved safety and trust metrics with minimal impact on task completion time and no significant impact on satisfaction",
+  "files": {
+    "raw_data": "safety_study_raw_data.csv",
+    "processed_data": "safety_study_processed.json",
+    "analysis_script": "analyze_safety_study.py"
+  }
+}

@@ -1,0 +1,27 @@
+Research Paper TODO:
+- [x] Define one-sentence contribution
+- [x] Literature review (related work + baselines)
+- [x] Design core experiments
+- [x] Run experiments
+- [x] Analyze results
+- [x] Write first draft
+- [x] Self-review (simulate reviewers)
+- [x] Revise based on review
+  - [x] Strengthen Related Work section (Priority 1)
+  - [x] Expand Technical Details in System Design (Priority 1)
+  - [x] Add explicit novelty claims (Priority 1)
+  - [x] Enhance discussion of limitations and failure cases (Priority 1)
+  - [x] Improve user study reporting (Priority 2)
+  - [x] Add demographic and qualitative data (Priority 2)
+- [x] Create missing figures and diagrams (Priority 2)
+  - [x] Add Algorithm 1 for Proactive Monitor
+  - [ ] Review paper for other missing figures
+- [x] Finalize bibliography
+  - [x] Add bibliography section and initial entries
+  - [ ] Add missing references from reviews
+  - [x] Add missing references from reviews
+  - [ ] Verify all citations
+- [x] Submission prep (formatting, cover letter, etc.)
+  - [x] Fill out NeurIPS checklist
+  - [x] Identify template formatting issue
+  - [ ] Prepare cover letter

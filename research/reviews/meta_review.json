@@ -1,0 +1,29 @@
+{
+  "summary": "The paper presents a novel framework for safe, proactive AI agents in communication platforms, combining three key components: proactive behavior, approval workflows, and external reasoning integration. The authors provide thorough empirical validation through multiple user studies, demonstrating significant improvements in engagement, safety, trust, and answer quality. While the work is solid and addresses an important problem, it could benefit from stronger connections to prior work and more detailed technical discussion.",
+  "strengths": [
+    "Addresses a timely and important problem in AI agent deployment",
+    "Comprehensive empirical evaluation with multiple user studies",
+    "Clear demonstration of improvement across multiple metrics",
+    "Well-motivated design choices addressing real-world concerns",
+    "Strong statistical significance in reported results"
+  ],
+  "weaknesses": [
+    "Related work section needs strengthening to better position the contribution",
+    "Some technical details about implementation could be expanded",
+    "Limited discussion of failure cases and system limitations",
+    "Could benefit from more detailed analysis of user behavior patterns",
+    "The novelty claim would be stronger with more precise differentiation from existing work"
+  ],
+  "questions": [
+    "How does this work differ from existing proactive assistant systems in literature?",
+    "What are the exact failure modes of the system and how are they handled?",
+    "How scalable is the approach to large Discord servers with thousands of members?",
+    "What are the precise latency and cost implications of the external reasoning integration?",
+    "How generalizable is the framework to other communication platforms or domains?"
+  ],
+  "soundness": 3,
+  "presentation": 3,
+  "contribution": 3,
+  "overall": 7,
+  "confidence": 3
+}

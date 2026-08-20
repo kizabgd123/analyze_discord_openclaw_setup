@@ -1,0 +1,9 @@
+2026-08-13 19:39:47,376 [WARNING] PyNaCl is not installed, voice will NOT be supported
+2026-08-13 19:39:47,376 [WARNING] davey is not installed, voice will NOT be supported
+[2026-08-13 19:39:47] [INFO    ] discord.client: logging in using static token
+2026-08-13 19:39:47,379 [INFO] logging in using static token
+[2026-08-13 19:39:48] [INFO    ] discord.gateway: Shard ID None has connected to Gateway (Session ID: 49370757bf12196ed43d29cb3c1b759e).
+2026-08-13 19:39:48,723 [INFO] Shard ID None has connected to Gateway (Session ID: 49370757bf12196ed43d29cb3c1b759e).
+2026-08-13 19:39:50,738 [INFO] ✅ Discord OpenClaw bot PokerOrchestrator#7220 je online! Ruter je aktivan.
+2026-08-13 19:39:50,739 [INFO] 💓 HEARTBEAT aktiviran. Proveravam zadatke...
+2026-08-13 19:39:50,740 [INFO] [Gemini Mozak] Šaljem upit Mozgu...
