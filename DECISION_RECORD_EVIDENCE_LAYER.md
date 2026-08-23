@@ -26,11 +26,11 @@ Umesto horizontalnog skaliranja (dodavanja novih botova), usvaja se **trostubna 
 
 | Bot Persona | Uloga | Dodeljena NotebookLM Sveska | Ključni Fokus |
 |---|---|---|---|
-| **🎙️ Bibana** | Predsedavajući & Moderator | *OpenClaw 2026: Personal Agent OS* (`bf77f7c8...`) | EDV obrazac, Provenance Tracking, Multi-Scope Memory |
-| **🛠️ Ekser** | Tehnički Arhitekta | *OpenClaw Optimization & Discord Guide* (`9f017e1b...`) | `openclaw.json` konfiguracija, Action Gates, CLI probe testovi |
-| **🛡️ Kritičar** | Security Revizor & QA | *Sistemski Promptovi i Bezbednost LLM-ova* (`2ac2015f...`) | SysVec vektori, indirect prompt injection, PLeak zaštita |
-| **📈 Batrić** | Biznis Strateg | *Strategije Digitalnog Marketinga* (`070d7a54...`) | Izbegavanje "pilot purgatory", CRO, ROI, Time-to-Market |
-| **⚖️ Miki Nosonja** | Nezavisni Evaluator | *Agentic AI: Human Oversight & Gen UI* (`98d5b107...`) | Strategic friction, HITL nadzor, A2UI deklarativni JSON |
+| **🎙️ Švaba (Bibana)** | Predsedavajući & Moderator | *OpenClaw Sovereign AI OS & Multi-Agent Orchestration 2026* (`06da0502...`) | EDV obrazac, Provenance Tracking, Multi-Scope Memory, Turn Governance |
+| **🛠️ Ekser** | Tehnički Arhitekta | *Discord Bot MCP & FastMCP Architecture 2026* (`e07782d0...`) | FastMCP, Discord Bot kao MCP Server, asyncio webhooks, 2026 CLI alati |
+| **🛡️ Pikac (Kritičar)** | Security Revizor & QA | *Sistemski Promptovi i Bezbednost LLM-ova* (`2ac2015f...`) | SysVec vektori, indirect prompt injection, JudgeGuard HMAC zaštita |
+| **📈 Dule Pacov (Batrić)** | Biznis Strateg | *AI Agent Monetization, GEO & Growth Strategy 2026* (`1f53f9ad...`) | GEO/AEO vidljivost, RTK optimizacija tokena, B2B workflow orkestracija, ROI |
+| **⚖️ Babac (Miki Nosonja)** | Nezavisni Evaluator | *Agentic AI: Human Oversight & Generative UI Patterns* (`98d5b107...`) | Strategic friction, HITL nadzor, PDCA matrica, Zapis o odluci |
 
 ---
 

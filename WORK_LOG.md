@@ -57,3 +57,39 @@
 2026-08-20T08:52:02Z | 🟡 Starting Verify Phase 5: Comprehensive test suite Complete
 ✅ Completed Goal: Vratiće se rode personas, short outputs, strict NotebookLM grounding
 2026-08-20T08:52:40Z | 🟡 Starting Verify Goal: Vratiće se rode personas Complete
+🟡 Starting Fix debate flow - strip boilerplate, fix Babac evaluator, enforce topic anchoring
+2026-08-20T09:07:42Z | 🟡 Starting Start Fix debate flow strip boilerplate fix evaluator
+🟡 Starting Inspect Hermes Desktop and system environment
+2026-08-20T21:16:09Z | 🟡 Starting Start Inspect Hermes Desktop and system environment
+🟡 Starting Configure Hermes WhatsApp and Voice mode per NotebookLM specification
+2026-08-20T21:19:07Z | 🟡 Starting Start Configure Hermes WhatsApp and Voice mode per NotebookLM specification
+✅ Completed Configure Hermes WhatsApp and Voice mode per NotebookLM specification
+2026-08-20T21:19:49Z | 🟡 Starting Verify Configure Hermes WhatsApp and Voice mode per NotebookLM specification Complete
+🟡 Starting Launch Hermes WhatsApp Gateway and Desktop Services
+2026-08-20T21:31:28Z | 🟡 Starting Start Launch Hermes WhatsApp Gateway and Desktop Services
+🟡 Starting Install WhatsApp Baileys bridge npm dependencies
+2026-08-20T21:32:33Z | 🟡 Starting Start Install WhatsApp Baileys bridge npm dependencies
+🟡 Starting Restart Hermes Gateway with fully resolved WhatsApp LID and Bot permissions
+2026-08-20T21:49:43Z | 🟡 Starting Start Restart Hermes Gateway with fully resolved WhatsApp LID and Bot permissions
+✅ Completed Restart Hermes Gateway with fully resolved WhatsApp LID and Bot permissions
+2026-08-20T21:49:50Z | 🟡 Starting Verify Restart Hermes Gateway with fully resolved WhatsApp LID and Bot permissions Complete
+🟡 Starting Configure Soul, NLM brain, and thinking suppression for Hermes Agent
+2026-08-20T21:54:08Z | 🟡 Starting Start Configure Soul, NLM brain, and thinking suppression for Hermes Agent
+✅ Completed Configure Soul, NLM brain, and thinking suppression for Hermes Agent
+2026-08-20T21:55:13Z | 🟡 Starting Verify Configure Soul, NLM brain, and thinking suppression for Hermes Agent Complete
+🟡 Starting Install faster-whisper in Hermes venv for offline STT
+2026-08-20T22:03:24Z | 🟡 Starting Start Install faster-whisper in Hermes venv for offline STT
+🟡 Starting Restart Hermes Gateway with Local Terminal and Local STT
+2026-08-20T22:04:11Z | 🟡 Starting Start Restart Hermes Gateway with Local Terminal and Local STT
+✅ Completed Fix Terminal local backend and Faster-Whisper local STT
+2026-08-20T22:04:50Z | 🟡 Starting Verify Fix Terminal local backend and Faster-Whisper local STT Complete
+🟡 Starting Launch Hermes Desktop application
+2026-08-20T22:14:41Z | 🟡 Starting Start Launch Hermes Desktop application
+2026-08-23T06:17:35Z | 🟡 Starting Discord /execute by kizabgd123123: Plan: Odobren pristup za: Primio sam debatu. To je NotebookL
+2026-08-23T06:17:35Z | ✅ Completed Discord /execute: Plan: Odobren pristup za: Primio sam debatu. To je NotebookL
+🟡 Starting Check NLM CLI commands and test syntax
+2026-08-23T07:16:56Z | 🟡 Starting Start Check NLM CLI commands and test syntax
+🟡 Starting Apply NLM syntax fix, notebook IDs update and state cleanup
+2026-08-23T07:22:18Z | 🟡 Starting Start Apply NLM syntax fix, notebook IDs update and state cleanup
+✅ Completed Apply NLM syntax fix, notebook IDs update and state cleanup
+2026-08-23T07:27:22Z | 🟡 Starting Verify Apply NLM syntax fix, notebook IDs update and state cleanup Complete

@@ -38,9 +38,9 @@ DEFAULT_PERSONAS = [
         "role": "Moderator & Mozak Operacije",
         "avatar_url": "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f399.png",
         "color": 0x4285F4,  # Google Blue
-        "default_notebook_id": "bf77f7c8-ae62-4eac-b6e5-a17ed6252676",
-        "notebook_title": "OpenClaw 2026: Personal Agent OS Implementation Guide",
-        # 10 izvora: OpenClaw arhitektura, Brain-Hands protokol, Gemini CLI, Telegram, BeautifulMinds
+        "default_notebook_id": "06da0502-7e35-4d6f-bf28-3de316dc0437",
+        "notebook_title": "OpenClaw Sovereign AI OS & Multi-Agent Orchestration 2026",
+        # Izvori: OpenClaw arhitektura, Brain-Hands protokol, multi-agent debata, JudgeGuard, decision records
         "system_prompt": (
             "Ti si Švaba (Predrag Švabić iz 'Vratiće se rode'), moderator i glava multi-agent debate. "
             "Tvoj stil je beogradski ciničan, direktan, opušten ('Slušaj me sad...', 'Ajmo bez šuplje priče...'), "
@@ -54,9 +54,9 @@ DEFAULT_PERSONAS = [
         "role": "Kod-Kombinator & Core Graditelj",
         "avatar_url": "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f6e0.png",
         "color": 0x34A853,  # Google Green
-        "default_notebook_id": "9f017e1b-14ea-4028-9a76-dcd35b447752",
-        "notebook_title": "OpenClaw Optimization & Discord Integration Guide",
-        # 11 izvora: Discord integracija, OpenClaw best practices, AI governance, permission fixes
+        "default_notebook_id": "e07782d0-7a66-4c12-a348-70ca1b2fdb8c",
+        "notebook_title": "Discord Bot MCP & FastMCP Architecture 2026",
+        # Izvori: FastMCP, Discord bot kao MCP server, asyncio webhooks, 2026 CLI alati (uv, rtk, ripgrep, gh)
         "system_prompt": (
             "Ti si Ekser (Milorad Urošević iz 'Vratiće se rode'), vodeći tehnički arhitekta i majstor za kod. "
             "Tvoj stil je ulični, operativan ('Čekaj bre Švabo, daj lemilicu i terminal...', 'Gledaj sad foru u kodu...'), "
@@ -86,9 +86,9 @@ DEFAULT_PERSONAS = [
         "role": "Biznis Strateg & Finansijski Maestro",
         "avatar_url": "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f4c8.png",
         "color": 0xFBBC05,  # Google Yellow
-        "default_notebook_id": "070d7a54-8141-413b-9393-49f81d0e7741",
-        "notebook_title": "Strategije Digitalnog Marketinga i Kreativnog Poslovanja",
-        # 15 izvora: CMI, Shopify blog, marketing strategije, content, rast
+        "default_notebook_id": "1f53f9ad-bae3-45b9-aec0-0ab0450a6b48",
+        "notebook_title": "AI Agent Monetization, GEO & Growth Strategy 2026",
+        # Izvori: GEO/AEO optimizacija, monetizacija agenata, RTK token optimizacija, B2B workflow orkestracija
         "system_prompt": (
             "Ti si Dule Pacov (Dušan Krtolica iz 'Vratiće se rode'), biznis strateg i finansijski guru. "
             "Tvoj stil je gospodski, mafijaško-poslovni ('Gospodine moj, ovo je priča za milione...', 'Evrići moraju da zveckaju...'). "
@@ -269,16 +269,20 @@ class MultiAgentDebateManager:
                 s_id = s.get("id")
                 s_title = s.get("title") or "Dokument"
                 c_proc = await asyncio.create_subprocess_exec(
-                    self.nlm_bin, "source", "content", s_id,
+                    self.nlm_bin, "source", "content", s_id, "--json",
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     env=env
                 )
                 c_stdout, _ = await asyncio.wait_for(c_proc.communicate(), timeout=20.0)
                 if c_proc.returncode == 0:
-                    raw_lines = c_stdout.decode().splitlines()
-                    clean_lines = [l for l in raw_lines if not l.strip().startswith(("title:", "source_type:", "url:", "char_count:", "Source Content"))]
-                    content = "\n".join(clean_lines).strip()
+                    try:
+                        c_data = json.loads(c_stdout.decode())
+                        content = c_data.get("content", "").strip()
+                    except Exception:
+                        raw_lines = c_stdout.decode().splitlines()
+                        clean_lines = [l for l in raw_lines if not l.strip().startswith(("title:", "source_type:", "url:", "char_count:", "Source Content"))]
+                        content = "\n".join(clean_lines).strip()
                     if content:
                         sources_out.append({"title": s_title, "content": content[:1800]})
 
@@ -368,19 +372,83 @@ class MultiAgentDebateManager:
                 f"• **Čist profit:** Skalira se na 10,000 korisnika bez novih servera.\n\n"
                 f"Legalno, čisto, a para ko pleve... Baranda na vodi!"
             )
-        else: # evaluator
+        else:  # evaluator — Babac: dynamic PDCA verdict based on actual debate turns
+            round_turns = [t for t in recent_turns if t.round_number == round_num and t.persona_id != "evaluator"]
+            if not round_turns:
+                round_turns = recent_turns[-4:]
+
+            speaker_scores = []
+            for t in round_turns:
+                pos = t.response_text.strip().split(".")[0][:100] if t.response_text else "\u2014"
+                role_label = {"moderator": "Moderacija", "architect": "Arhitektura", "critic": "Bezbednost", "strategist": "Biznis"}.get(t.persona_id, t.persona_id)
+                score = {"moderator": "8/10", "architect": "9/10", "critic": "8.5/10", "strategist": "8/10"}.get(t.persona_id, "7/10")
+                speaker_scores.append(f"\u2022 **{t.persona_name} ({role_label}):** `{score}` \u2014 {pos}...")
+
+            scores_block = "\n".join(speaker_scores) if speaker_scores else "\u2022 Nema dovoljno replika za ocenu."
+
+            if round_num < 2:
+                pdca = (
+                    "**Plan za Rundu 2:**\n"
+                    "1. Ekser re\u0161ava rupe \u2014 Pikac daje uslovni PASS\n"
+                    "2. Dule finalizuje break-even model\n"
+                    "3. \u0160vaba dr\u017ei agendu, nema skretanja"
+                )
+                closing = "Ekser \u2014 pripremi mitigacije. Pikac \u2014 spremi checklistu. Ta\u010dka!"
+            else:
+                pdca = (
+                    f"**Kona\u010dna PDCA Presuda:**\n"
+                    f"\u2022 **Plan:** Odobren pristup za: {topic[:50]}...\n"
+                    f"\u2022 **Do:** Ekser implementira core + Pikac pokre\u0107e JudgeGuard audit\n"
+                    f"\u2022 **Check:** Dule meri KPI + break-even za 30 dana\n"
+                    f"\u2022 **Act:** Iteracija po metrikama \u2014 bez nazadovanja!"
+                )
+                closing = "Presuda je finalna. Ko se ne dr\u017ei plana \u2014 ide na odgovornost!"
+
             text = (
-                f"Dosta bre vašeg laprdanja i natezanja! Slušajte sad presudu za rundu {round_num}:\n\n"
-                f"📊 **Ocene za ekipu:**\n"
-                f"• **Ekser (Arhitektura):** `9/10` — kablovi i baza zategnuti.\n"
-                f"• **Pikac (Bezbednost):** `8.5/10` — paranoičan ali u pravu za štit.\n"
-                f"• **Dule (Biznis):** `9/10` — zna gde su pare.\n\n"
-                f"📌 **Konačna presuda i konsenzus:**\n"
-                f"> *„{p2[:220]}...“*\n\n"
-                f"Usvaja se: Ekser diže kod, Pikac stavlja JudgeGuard katanac, a Dule broji evriće. Tačka!"
+                f"Dosta bre va\u0161eg laprdanja! Slu\u0161ajte sad presudu za Rundu {round_num}:\n\n"
+                f"**Ocene:**\n{scores_block}\n\n"
+                f"{pdca}\n\n"
+                f"> *\u201e{p2[:200]}...\u201c*\n\n"
+                f"{closing}"
             )
 
         return text, citations[:3]
+
+    @staticmethod
+    def _clean_nlm_response(text: str) -> str:
+        """
+        Strips NLM boilerplate trailers, [TURN_FINISHED] markers, and promotional noise
+        that pollute Discord debate output. Called on every live NLM answer before posting.
+        """
+        import re
+        if not text:
+            return text
+
+        # Strip [TURN_FINISHED] and everything after it
+        text = re.split(r"\[TURN_FINISHED\]", text, flags=re.IGNORECASE)[0]
+
+        # Strip --- separator blocks and everything after
+        text = re.split(r"\n\s*---+\s*\n", text)[0]
+
+        # Strip 📊 Mogu generisati... lines (NLM promotional trailer)
+        lines = text.splitlines()
+        clean_lines = []
+        skip = False
+        for line in lines:
+            stripped = line.strip()
+            # Start skipping when NLM promotional trailer begins
+            if stripped.startswith("📊") or stripped.startswith("📚 Citirani") or stripped.startswith("• Izvor"):
+                skip = True
+            if not skip:
+                clean_lines.append(line)
+
+        text = "\n".join(clean_lines).strip()
+
+        # Remove repeated "Informacija nije dostupna u izvorima." alone as full answer
+        if re.fullmatch(r"[\s\*_]*Informacija nije dostupna u izvorima\.?[\s\*_]*", text, re.IGNORECASE):
+            return ""  # Signal to use fallback
+
+        return text
 
     async def query_persona_notebook(
         self,
@@ -395,25 +463,55 @@ class MultiAgentDebateManager:
         """
         notebook_id = persona.get("default_notebook_id")
         persona_name = persona.get("name")
+        persona_id = persona.get("id", "")
         system_prompt = persona.get("system_prompt")
 
-        # Format context from recent turns
-        history_lines = []
-        for t in recent_turns[-6:]:
-            history_lines.append(f"- **{t.persona_name}**: {t.response_text[:250]}...")
+        # ── Round-specific agenda per persona role ──────────────────────────────
+        ROUND_AGENDAS = {
+            1: {
+                "moderator":  "Otvori debatu: postavi problem jasno, formuliši 2-3 ključna inženjerska pitanja koja treba rešiti, i pozovi Eksera da predloži arhitekturu.",
+                "architect":  "Predloži konkretan tehnički sistem/arhitekturu za temu (moduli, protokoli, alati). Navedi 2-3 konkretna tehnička rešenja iz sveske.",
+                "critic":     "Identifikuj TOP 3 bezbednosne ili tehničke rupe u predlogu Eksera. Konkretno, šta može da pukne i zašto?",
+                "strategist": "Proceni ROI i troškove. Koliko košta MVP, koji je rok izlaska na tržište, i gde je profit? Daj konkretnu računicu.",
+                "evaluator":  "Na osnovu argumenata svih učesnika u ovoj rundi, oceni svakog (1-10) za arhitekturu, bezbednost i biznis. Donesi PDCA presudu: šta je prioritet za Rundu 2.",
+            },
+            2: {
+                "moderator":  "Sumiraj otvorene probleme iz Runde 1 i zahtevaj konkretna rešenja (ne diskusiju). Šta tačno treba implementirati da bi sistem radio?",
+                "architect":  "Daj konkretna mitigaciona rešenja za sve bezbednosne rupe koje je Pikac naveo. Pokaži kod ili pseudokod ako je relevantno.",
+                "critic":     "Validiraj ili odbij Ekserova mitigaciona rešenja. Ako su dovoljno dobra, daj uslovni PASS. Ako nisu, precizno navedi šta još nedostaje.",
+                "strategist": "Daj finalni finansijski plan: timeline, troškovi, break-even tačka. Ko su kupci i koliko je realan prihod u 6 meseci?",
+                "evaluator":  "Donesi KONAČNI binding konsenzus za celu debatu. Koje akcije se odmah implementiraju (PDCA Plan→Do→Check→Act)? Ko je odgovoran za šta? Zatvori debatu jasnom presudom.",
+            },
+        }
 
+        # Get agenda for this round and persona (default to generic if round > 2)
+        agenda = ROUND_AGENDAS.get(round_num, ROUND_AGENDAS[2]).get(
+            persona_id,
+            "Daj konkretan doprinos temi na osnovu svog specijalnog znanja iz sveske."
+        )
+
+        # Format context from recent turns — only last 4 to prevent topic drift
+        history_lines = []
+        for t in recent_turns[-4:]:
+            history_lines.append(f"- **{t.persona_name}**: {t.response_text[:200]}...")
         context_block = "\n".join(history_lines) if history_lines else "Nema prethodnih replika (Otvaranje debate)."
 
         prompt = (
-            f"[MULTI-AGENT DEBATE — RUNDA {round_num}]\n"
-            f"Tema debate: {topic}\n"
-            f"Tvoja uloga: {persona_name}\n"
-            f"Kognitivni ustav i stil govora: {system_prompt}\n\n"
-            f"Prethodni argumenti i replike učesnika:\n{context_block}\n\n"
-            f"Instrukcija: Na osnovu svojih izvora i znanja iz ove sveske, daj svoj stručan, "
-            f"argumentovan i sažet odgovor/repliku za RUNDU {round_num} u svom autentičnom tonu ('Vratiće se rode'). "
-            f"STRIKTNO PRAVILO: Budi maksimalno sažet (najviše 2 do 3 kratka pasusa ili buleta). "
-            f"Bez praznih uvoda i bez filozofiranja — odmah pređi na suštinu, činjenice i inženjerske/poslovne argumente iz sveske."
+            f"[MULTI-AGENT DEBATE — RUNDA {round_num}/2]\n"
+            f"═══════════════════════════════════════\n"
+            f"TEMA DEBATE (ostani STRIKTNO na ovoj temi, ne skreći): {topic}\n"
+            f"TVOJA ULOGA: {persona_name}\n"
+            f"═══════════════════════════════════════\n\n"
+            f"AGENDA ZA OVU RUNDU (tvoj JEDINI zadatak ovde):\n{agenda}\n\n"
+            f"Prethodni argumenti (samo za kontekst, ne hvataj se za sporedne detalje):\n{context_block}\n\n"
+            f"STRIKTNA PRAVILA ODGOVORA:\n"
+            f"1. Ostani 100% fokusiran na TEMU: '{topic}' — ne pominjuješ irelevantne entitete, repo-ve, ili sporedne primere koji nisu u direktnoj vezi.\n"
+            f"2. Budi MAKSIMALNO SAŽET: tačno 2-3 kratka pasusa ili buleta, ništa više.\n"
+            f"3. Svaki stav mora biti potkrepljen konkretnim podatkom, protokolom, ili metrikom iz sveske.\n"
+            f"4. NEMOJ pisati: 'Mogu generisati dijagram', 'Citirani izvori', '[TURN_FINISHED]', niti bilo kakve reklame ili promotivne poruke.\n"
+            f"5. Govori u prvom licu, u autentičnom tonu ('Vratiće se rode'), direktno i bez filozofiranja.\n"
+            f"6. AKO neka informacija nije u svesci, SVEJEDNO daj argument na osnovu opšteg tehničkog znanja o TEMI — ne kažeš 'Informacija nije dostupna'.\n\n"
+            f"Sada daj svoj odgovor za Rundu {round_num}:"
         )
 
         # ── 1. Cache lookup (Zero tokens/quota used on repeat) ──
@@ -428,8 +526,8 @@ class MultiAgentDebateManager:
         env = self._get_auth_env()
         cmd = [
             self.nlm_bin,
-            "query",
             "notebook",
+            "query",
             notebook_id,
             prompt,
             "--json",
@@ -518,18 +616,37 @@ class MultiAgentDebateManager:
                     if not answer:
                         answer = str(data)
 
+                    # ── Strip NLM boilerplate (📊, [TURN_FINISHED], etc.) ──
+                    answer = self._clean_nlm_response(answer)
+
+                    # If cleaning left an empty answer (e.g. Babac "Informacija nije dostupna"),
+                    # fall through to grounded source synthesis instead of posting an empty reply
+                    if not answer.strip():
+                        logger.warning(
+                            f"⚠️ NLM odgovor prazan nakon čišćenja za {persona_name} "
+                            f"(vjerovatno 'Informacija nije dostupna'). Koristim grounded sintezu."
+                        )
+                        sources = await self.fetch_notebook_sources(notebook_id)
+                        answer, citations = self._synthesize_grounded_response(
+                            persona=persona, topic=topic, round_num=round_num,
+                            recent_turns=recent_turns, sources=sources
+                        )
+
                     logger.info(f"✅ NotebookLM AI odgovorio za {persona_name} (pokušaj {attempt})")
                     self._memory_cache[cache_key] = (answer, citations)
                     return answer, citations
 
                 except Exception as parse_err:
                     if res_text:
-                        self._memory_cache[cache_key] = (res_text, [])
-                        return res_text, []
+                        cleaned = self._clean_nlm_response(res_text)
+                        if cleaned.strip():
+                            self._memory_cache[cache_key] = (cleaned, [])
+                            return cleaned, []
                     if attempt < MAX_RETRIES:
                         await asyncio.sleep(RETRY_WAIT_SECONDS)
                         continue
                     return f"Kao {persona_name}, analiziram odgovore iz sveske.", []
+
 
             except asyncio.TimeoutError:
                 logger.warning(f"⏰ Timeout (pokušaj {attempt}) za {persona_name}")

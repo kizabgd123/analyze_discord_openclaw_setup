@@ -84,10 +84,10 @@
   },
 
   "personas": {
-    "moderator":  { "name": "Švaba (Predrag Švabić)", "role": "Moderator & Mozak Operacije", "notebook_id": "bf77f7c8-ae62-4eac-b6e5-a17ed6252676" },
-    "architect":  { "name": "Ekser (Milorad Urošević)", "role": "Kod-Kombinator & Core Arhitekta", "notebook_id": "9f017e1b-14ea-4028-9a76-dcd35b447752" },
+    "moderator":  { "name": "Švaba (Predrag Švabić)", "role": "Moderator & Mozak Operacije", "notebook_id": "06da0502-7e35-4d6f-bf28-3de316dc0437" },
+    "architect":  { "name": "Ekser (Milorad Urošević)", "role": "Kod-Kombinator & Core Arhitekta", "notebook_id": "e07782d0-7a66-4c12-a348-70ca1b2fdb8c" },
     "critic":     { "name": "Pikac (Momčilo Đorđević)", "role": "Bezbednosni Paranoik & QA Skeptik", "notebook_id": "2ac2015f-51dd-44f8-9210-521499f0c953" },
-    "strategist": { "name": "Dule Pacov (Dušan Krtolica)", "role": "Biznis Strateg & Finansijski Maestro", "notebook_id": "070d7a54-8141-413b-9393-49f81d0e7741" },
+    "strategist": { "name": "Dule Pacov (Dušan Krtolica)", "role": "Biznis Strateg & Finansijski Maestro", "notebook_id": "1f53f9ad-bae3-45b9-aec0-0ab0450a6b48" },
     "evaluator":  { "name": "Babac (Ruža / Miki Nosonja)", "role": "Vrhovni Sudija & Data Evaluator", "notebook_id": "98d5b107-3c1b-4345-b8d5-1825dbfe4084" }
   }
 }

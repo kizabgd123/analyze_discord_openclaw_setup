@@ -35,7 +35,7 @@ except ImportError as _brain_import_err:
 # ── 1. CONFIGURATION & STARTUP VALIDATION ──
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-DEFAULT_NOTEBOOK_ID = os.getenv("NLM_NOTEBOOK_ID", "bf77f7c8-ae62-4eac-b6e5-a17ed6252676")
+DEFAULT_NOTEBOOK_ID = os.getenv("NLM_NOTEBOOK_ID", "06da0502-7e35-4d6f-bf28-3de316dc0437")
 NLM_BIN = shutil.which("nlm") or "/home/kizamladjanijebac/.local/bin/nlm"
 MEMORY_FILE = os.path.join(os.path.dirname(__file__), "MEMORY.md")
 SOUL_FILE = os.path.join(os.path.dirname(__file__), "SOUL.md")
@@ -162,10 +162,9 @@ class NotebookLMEngine:
         reference i konverzacijski ID za nastavak razgovora.
         """
         env = self._get_auth_env()
-        cmd = [self.binary_path, "query", "notebook", "--json"]
+        cmd = [self.binary_path, "notebook", "query", notebook_id, question, "--json"]
         if conversation_id:
             cmd.extend(["--conversation-id", conversation_id])
-        cmd.extend([notebook_id, question])
 
         logger.info(f"[NLM Query] Notebook: {notebook_id[:8]} | Conv: {conversation_id or 'NEW'} | Q: {question[:60]}...")
 
@@ -608,7 +607,7 @@ class AssignPersonaNotebookModal(discord.ui.Modal):
 
         self.nb_input = discord.ui.TextInput(
             label="Google NotebookLM ID ili Alias",
-            placeholder="Unesi UUID sveske (npr. bf77f7c8-ae62-4eac-b6e5...)",
+            placeholder="Unesi UUID sveske (npr. 06da0502-7e35-4d6f-bf28...)",
             default=current_nb,
             required=True,
             max_length=64

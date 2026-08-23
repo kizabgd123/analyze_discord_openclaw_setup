@@ -96,7 +96,7 @@ class BrainCore:
         self.nlm_bin             = nlm_bin
         self.default_notebook_id = (
             default_notebook_id
-            or os.getenv("NLM_NOTEBOOK_ID", "bf77f7c8-ae62-4eac-b6e5-a17ed6252676")
+            or os.getenv("NLM_NOTEBOOK_ID", "06da0502-7e35-4d6f-bf28-3de316dc0437")
         )
         self._conn               = _init_db(self.db_path)
         self._soul               = self._load_file(_SOUL_FILE)
@@ -305,10 +305,9 @@ class BrainCore:
         conversation_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         env = self._get_auth_env()
-        cmd = [self.nlm_bin, "query", "notebook", "--json"]
+        cmd = [self.nlm_bin, "notebook", "query", notebook_id, question, "--json"]
         if conversation_id:
             cmd.extend(["--conversation-id", conversation_id])
-        cmd.extend([notebook_id, question])
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -322,8 +321,10 @@ class BrainCore:
             )
             raw = stdout.decode("utf-8", errors="replace").strip()
             if proc.returncode != 0:
-                return {"success": False, "error": stderr.decode()[:300]}
+                return {"success": False, "error": stderr.decode()[:300] or raw[:300]}
             data = json.loads(raw)
+            if data.get("status") == "error":
+                return {"success": False, "error": data.get("error", "NLM query error")}
             return {
                 "success": True,
                 "answer": data.get("answer", ""),
