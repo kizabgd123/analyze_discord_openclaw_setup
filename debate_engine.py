@@ -868,6 +868,23 @@ class MultiAgentDebateManager:
         if not session:
             return
 
+        # ── GUARD: ne pokreći završenu debatu ponovo ──
+        # Ako je debata već odvrtela sve runde (current_round > total_rounds),
+        # nemoj je restartovati — samo je uredno zatvori i izađi. Ovo sprečava
+        # beskonacno ponavljanje Babac-ovog consensus-a nakon svakog bot restart-a.
+        if session.current_round > session.total_rounds:
+            logger.info(f"🛑 Debata u kanalu {channel_id} je već završena (round {session.current_round}>{session.total_rounds}). Ne restartujem.")
+            session.is_active = False
+            session.is_paused = False
+            self._save_state()
+            return
+
+        # ── GUARD: ne dozvoli 2 paralelna task-a za isti kanal ──
+        existing = self._running_tasks.get(channel_id)
+        if existing is not None and not existing.done():
+            logger.warning(f"⚠️ Debata za kanal {channel_id} već trči (task živ). Ne dupliram loop.")
+            return
+
         session.is_active = True
         session.is_paused = False
         self._save_state()
@@ -907,8 +924,11 @@ class MultiAgentDebateManager:
             self._save_state()
 
     def start_debate(self, bot: discord.Client, channel_id: int, turn_delay: float = 3.0) -> asyncio.Task:
-        if channel_id in self._running_tasks and not self._running_tasks[channel_id].done():
-            self._running_tasks[channel_id].cancel()
+        # ── GUARD: ako već trči živ task, nemoj kreirati dupli loop ──
+        existing = self._running_tasks.get(channel_id)
+        if existing is not None and not existing.done():
+            logger.warning(f"⚠️ start_debate: debata za {channel_id} već aktivna. Cancel-ujem staru i pravim novu.")
+            existing.cancel()
 
         task = asyncio.create_task(self.run_debate_loop(bot, channel_id, turn_delay))
         self._running_tasks[channel_id] = task

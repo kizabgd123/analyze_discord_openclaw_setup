@@ -744,10 +744,19 @@ async def on_ready():
         heartbeat_task.start()
 
     # Automatski nastavi aktivne debate koje su prekinute restartom
+    # GUARD: restartuj SAMO debate koje su zaista u toku (ne završene, ne pauzirane).
+    # Završene debate (current_round > total_rounds) se ignorisu da se ne ponavljaju.
     for ch_id, sess in list(debate_mgr.sessions.items()):
-        if sess.is_active and not sess.is_paused:
+        is_finished = sess.current_round > sess.total_rounds
+        if sess.is_active and not sess.is_paused and not is_finished:
             logger.info(f"🔄 Automatski nastavljam aktivnu debatu u kanalu {ch_id} (Turn {sess.current_turn_index + 1})...")
             debate_mgr.start_debate(bot, ch_id)
+        elif is_finished:
+            # Uredno zatvori završenu debatu u state-u (sprečava ponavljanje na sledećem restart-u)
+            logger.info(f"🛑 Debata u kanalu {ch_id} je završena — označavam kao neaktivnu.")
+            sess.is_active = False
+            sess.is_paused = False
+            debate_mgr._save_state()
 
 @bot.event
 async def on_message(message: discord.Message):
