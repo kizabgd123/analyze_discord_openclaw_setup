@@ -1,0 +1,279 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════════════════════════
+# OpenClaw Pre-Commit Hook — "Da li agent zaista radi ispravno?"
+# ═══════════════════════════════════════════════════════════════════════════════
+# Brze provere (<5s) pre svakog commit-a:
+#   1. Python kompilacija svih modula (py_compile)
+#   2. NLM sintaksa — "nlm notebook query" umesto starog "nlm query notebook"
+#   3. Notebook ID konzistentnost — da li se svi ID-jevi poklapaju
+#   4. JSON validnost — openclaw.json, debate_state.json
+#   5. Detekcija tajni/tokena u staged fajlovima
+#   6. JudgeGuard gate — determinističke bezbednosne provere
+#   7. Struktura debate_state.json — nema korupcije
+#
+# Bypass: git commit --no-verify -m "wip: hitno"
+# ═══════════════════════════════════════════════════════════════════════════════
+set -euo pipefail
+
+PROJECT_DIR="$(git rev-parse --show-toplevel)"
+PYTHON="${PROJECT_DIR}/venv/bin/python3"
+ERRORS=0
+WARNINGS=0
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+red()    { printf "\033[31m%s\033[0m\n" "$*"; }
+green()  { printf "\033[32m%s\033[0m\n" "$*"; }
+yellow() { printf "\033[33m%s\033[0m\n" "$*"; }
+bold()   { printf "\033[1m%s\033[0m\n" "$*"; }
+
+pass() { green "  ✅ $*"; }
+fail() { red   "  ❌ $*"; ERRORS=$((ERRORS + 1)); }
+warn() { yellow "  ⚠️  $*"; WARNINGS=$((WARNINGS + 1)); }
+
+echo ""
+bold "═══ OpenClaw Pre-Commit Verifikacija ═══"
+echo ""
+
+# ── 1. Python kompilacija ───────────────────────────────────────────────────
+bold "1️⃣  Python Kompilacija (py_compile)"
+PY_MODULES=("brain_core.py" "debate_engine.py" "discord_bot.py" "judge_guard.py")
+for mod in "${PY_MODULES[@]}"; do
+    if [ -f "${PROJECT_DIR}/${mod}" ]; then
+        if $PYTHON -m py_compile "${PROJECT_DIR}/${mod}" 2>/dev/null; then
+            pass "${mod} — kompajlira se"
+        else
+            fail "${mod} — SINTAKSNA GREŠKA! Ne kompajlira se."
+        fi
+    fi
+done
+
+# ── 2. NLM Sintaksa — zabrana starog "nlm query notebook" ───────────────────
+bold "2️⃣  NLM CLI Sintaksa (nlm notebook query)"
+STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.py$' || true)
+NLM_BAD_PATTERN='nlm["\x27\s]+query["\x27\s]+notebook'
+NLM_BAD_PATTERN2='nlm_bin.*"query".*"notebook"'
+
+if [ -n "$STAGED_PY" ]; then
+    for pyfile in $STAGED_PY; do
+        if [ -f "${PROJECT_DIR}/${pyfile}" ]; then
+            # Check staged content (what's actually being committed)
+            if git show ":${pyfile}" 2>/dev/null | grep -qEi "$NLM_BAD_PATTERN|$NLM_BAD_PATTERN2|\"nlm\",\s*\"query\",\s*\"notebook\""; then
+                fail "${pyfile} — Stara NLM sintaksa 'nlm query notebook' detektovana! Ispravka: 'nlm notebook query'"
+            fi
+            # Verify correct pattern exists where nlm is called
+            if git show ":${pyfile}" 2>/dev/null | grep -q "nlm" && git show ":${pyfile}" 2>/dev/null | grep -q "query"; then
+                if git show ":${pyfile}" 2>/dev/null | grep -qE '"notebook",\s*"query"|nlm_bin.*notebook.*query'; then
+                    pass "${pyfile} — NLM sintaksa ispravna (nlm notebook query)"
+                fi
+            fi
+        fi
+    done
+else
+    pass "Nema staged .py fajlova — skip NLM provere"
+fi
+
+# ── 3. Notebook ID Konzistentnost ───────────────────────────────────────────
+bold "3️⃣  Notebook ID Konzistentnost (cross-file sync)"
+
+# Canonical IDs from openclaw.json
+if [ -f "${PROJECT_DIR}/openclaw.json" ]; then
+    CANONICAL_IDS=$($PYTHON -c "
+import json, sys
+with open('${PROJECT_DIR}/openclaw.json') as f:
+    data = json.load(f)
+personas = data.get('personas', {})
+for role, info in personas.items():
+    nb_id = info.get('notebook_id', '')
+    print(f'{role}={nb_id}')
+" 2>/dev/null || echo "")
+
+    if [ -n "$CANONICAL_IDS" ]; then
+        # Extract expected IDs
+        MOD_ID=$(echo "$CANONICAL_IDS" | grep '^moderator=' | cut -d= -f2)
+        ARC_ID=$(echo "$CANONICAL_IDS" | grep '^architect=' | cut -d= -f2)
+        CRI_ID=$(echo "$CANONICAL_IDS" | grep '^critic='    | cut -d= -f2)
+        STR_ID=$(echo "$CANONICAL_IDS" | grep '^strategist=' | cut -d= -f2)
+        EVA_ID=$(echo "$CANONICAL_IDS" | grep '^evaluator=' | cut -d= -f2)
+
+        # Verify debate_engine.py has the same IDs
+        if [ -f "${PROJECT_DIR}/debate_engine.py" ]; then
+            for check_id in "$MOD_ID" "$ARC_ID" "$CRI_ID" "$STR_ID" "$EVA_ID"; do
+                if [ -n "$check_id" ] && ! grep -q "$check_id" "${PROJECT_DIR}/debate_engine.py"; then
+                    fail "debate_engine.py — Nedostaje notebook ID ${check_id} iz openclaw.json!"
+                fi
+            done
+        fi
+
+        # Verify .env default matches moderator
+        if [ -f "${PROJECT_DIR}/.env" ]; then
+            ENV_NB=$(grep '^NLM_NOTEBOOK_ID=' "${PROJECT_DIR}/.env" | cut -d'"' -f2 || true)
+            if [ -n "$ENV_NB" ] && [ -n "$MOD_ID" ] && [ "$ENV_NB" != "$MOD_ID" ]; then
+                fail ".env NLM_NOTEBOOK_ID=${ENV_NB} ne odgovara moderator ID-u ${MOD_ID} iz openclaw.json!"
+            else
+                pass ".env NLM_NOTEBOOK_ID sinhronizovan sa openclaw.json"
+            fi
+        fi
+
+        # Verify brain_core.py default matches
+        if [ -f "${PROJECT_DIR}/brain_core.py" ]; then
+            if grep -q "$MOD_ID" "${PROJECT_DIR}/brain_core.py"; then
+                pass "brain_core.py — default notebook ID sinhronizovan"
+            else
+                fail "brain_core.py — default notebook ID ne odgovara openclaw.json moderator ID-u!"
+            fi
+        fi
+
+        # Verify discord_bot.py default matches
+        if [ -f "${PROJECT_DIR}/discord_bot.py" ]; then
+            if grep -q "$MOD_ID" "${PROJECT_DIR}/discord_bot.py"; then
+                pass "discord_bot.py — DEFAULT_NOTEBOOK_ID sinhronizovan"
+            else
+                fail "discord_bot.py — DEFAULT_NOTEBOOK_ID ne odgovara openclaw.json!"
+            fi
+        fi
+
+        pass "Svi notebook ID-jevi konzistentni kroz fajlove"
+    else
+        warn "Nije moguće parsirati openclaw.json — skip konzistentnosti"
+    fi
+else
+    warn "openclaw.json ne postoji — skip konzistentnosti"
+fi
+
+# ── 4. JSON Validnost ───────────────────────────────────────────────────────
+bold "4️⃣  JSON Validnost"
+JSON_FILES=("openclaw.json" "debate_state.json")
+for jf in "${JSON_FILES[@]}"; do
+    if [ -f "${PROJECT_DIR}/${jf}" ]; then
+        if $PYTHON -c "import json; json.load(open('${PROJECT_DIR}/${jf}'))" 2>/dev/null; then
+            pass "${jf} — validan JSON"
+        else
+            fail "${jf} — NEISPRAVAN JSON! Agent ostavio koruptiran fajl."
+        fi
+    fi
+done
+
+# ── 5. Detekcija Tajni ──────────────────────────────────────────────────────
+bold "5️⃣  Detekcija Tajni i Tokena"
+STAGED_ALL=$(git diff --cached --name-only --diff-filter=ACM | grep -v '.env' | grep -v '.log' || true)
+SECRET_PATTERNS=(
+    'AKIA[0-9A-Z]{16}'                     # AWS Access Key
+    'sk-[a-zA-Z0-9]{20,}'                  # OpenAI/Stripe key
+    'ghp_[a-zA-Z0-9]{36}'                  # GitHub PAT
+    'discord.*token.*=.*"[A-Za-z0-9._-]+'  # Discord token in code
+    'MTQ[0-9].*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' # Discord bot token pattern
+)
+
+if [ -n "$STAGED_ALL" ]; then
+    SECRETS_FOUND=0
+    for sf in $STAGED_ALL; do
+        if [ -f "${PROJECT_DIR}/${sf}" ]; then
+            for pattern in "${SECRET_PATTERNS[@]}"; do
+                if git show ":${sf}" 2>/dev/null | grep -qE "$pattern"; then
+                    fail "${sf} — Potencijalni tajni token detektovan! (pattern: ${pattern:0:30}...)"
+                    SECRETS_FOUND=$((SECRETS_FOUND + 1))
+                fi
+            done
+        fi
+    done
+    if [ "$SECRETS_FOUND" -eq 0 ]; then
+        pass "Nema tajni u staged fajlovima"
+    fi
+else
+    pass "Nema staged fajlova za skeniranje"
+fi
+
+# ── 6. JudgeGuard Gate ──────────────────────────────────────────────────────
+bold "6️⃣  JudgeGuard Bezbednosni Gate"
+COMMIT_MSG_PREVIEW=$(git log --oneline -1 2>/dev/null || echo "initial commit")
+if [ -f "${PROJECT_DIR}/judge_guard.py" ]; then
+    VERDICT=$(cd "${PROJECT_DIR}" && $PYTHON judge_guard.py "Pre-commit check for: ${COMMIT_MSG_PREVIEW}" 2>/dev/null | grep "Verdict:" | awk '{print $NF}' || echo "ERROR")
+    if [ "$VERDICT" = "PASSED" ]; then
+        pass "JudgeGuard — PASSED"
+    elif [ "$VERDICT" = "BLOCKED" ]; then
+        fail "JudgeGuard — BLOCKED! WORK_LOG.md zastario ili akcija blokirana."
+    else
+        warn "JudgeGuard — nije mogao da se pokrene (VERDICT=${VERDICT})"
+    fi
+else
+    warn "judge_guard.py ne postoji — skip"
+fi
+
+# ── 7. debate_state.json Integritet ─────────────────────────────────────────
+bold "7️⃣  Debate State Integritet"
+if [ -f "${PROJECT_DIR}/debate_state.json" ]; then
+    STATE_CHECK=$($PYTHON -c "
+import json, sys
+with open('${PROJECT_DIR}/debate_state.json') as f:
+    data = json.load(f)
+if not isinstance(data, dict):
+    print('ERROR: Nije dict')
+    sys.exit(1)
+for ch_id, session in data.items():
+    if not isinstance(session, dict):
+        print(f'ERROR: Sesija {ch_id} nije dict')
+        sys.exit(1)
+    status = session.get('status', '')
+    if status == 'stuck':
+        print(f'WARNING: Sesija {ch_id} je stuck')
+        sys.exit(2)
+    turns = session.get('turns', [])
+    if len(turns) > 200:
+        print(f'WARNING: Sesija {ch_id} ima {len(turns)} turnova (>200), moguć memory leak')
+        sys.exit(2)
+print('OK')
+" 2>/dev/null)
+
+    STATE_EXIT=$?
+    if [ "$STATE_EXIT" -eq 0 ]; then
+        pass "debate_state.json — struktura validna"
+    elif [ "$STATE_EXIT" -eq 2 ]; then
+        warn "debate_state.json — ${STATE_CHECK}"
+    else
+        fail "debate_state.json — ${STATE_CHECK}"
+    fi
+fi
+
+# ── 8. Souls fajlovi — provera da notebook ID u souls/ postoji u openclaw.json ──
+bold "8️⃣  Souls ↔ openclaw.json Cross-Ref"
+if [ -d "${PROJECT_DIR}/souls" ] && [ -f "${PROJECT_DIR}/openclaw.json" ]; then
+    ALL_NB_IDS=$($PYTHON -c "
+import json
+with open('${PROJECT_DIR}/openclaw.json') as f:
+    data = json.load(f)
+for p in data.get('personas', {}).values():
+    print(p.get('notebook_id', ''))
+" 2>/dev/null || echo "")
+
+    SOUL_FILES=$(find "${PROJECT_DIR}/souls" -name "*.md" 2>/dev/null || true)
+    for soul in $SOUL_FILES; do
+        SOUL_NB=$(grep -oP '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$soul" 2>/dev/null | head -1 || true)
+        BASENAME=$(basename "$soul")
+        if [ -n "$SOUL_NB" ]; then
+            if echo "$ALL_NB_IDS" | grep -q "$SOUL_NB"; then
+                pass "souls/${BASENAME} — notebook ID ${SOUL_NB:0:8}... postoji u openclaw.json"
+            else
+                fail "souls/${BASENAME} — notebook ID ${SOUL_NB:0:8}... NE POSTOJI u openclaw.json!"
+            fi
+        fi
+    done
+fi
+
+# ── VERDIKT ──────────────────────────────────────────────────────────────────
+echo ""
+bold "═══════════════════════════════════════════"
+if [ "$ERRORS" -gt 0 ]; then
+    red "❌ COMMIT BLOKIRAN: ${ERRORS} grešaka, ${WARNINGS} upozorenja"
+    red "   Agent nije ispravno završio posao. Popravi greške pre commit-a."
+    red "   Bypass: git commit --no-verify -m \"wip: opis\""
+    echo ""
+    exit 1
+else
+    if [ "$WARNINGS" -gt 0 ]; then
+        yellow "⚠️  COMMIT DOZVOLJEN sa ${WARNINGS} upozorenjima"
+    else
+        green "✅ SVE PROVERE PROŠLE — commit dozvoljen"
+    fi
+    echo ""
+    exit 0
+fi

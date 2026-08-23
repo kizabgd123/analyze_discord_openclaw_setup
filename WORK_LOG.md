@@ -93,3 +93,6 @@
 2026-08-23T07:22:18Z | 🟡 Starting Start Apply NLM syntax fix, notebook IDs update and state cleanup
 ✅ Completed Apply NLM syntax fix, notebook IDs update and state cleanup
 2026-08-23T07:27:22Z | 🟡 Starting Verify Apply NLM syntax fix, notebook IDs update and state cleanup Complete
+🟡 Starting git hooks pre-commit dry-run
+2026-08-23T07:31:54Z | 🟡 Starting Pre-commit check for: 03a4aa5 checkpoint: fix NLM query syntax, setup verified personas notebooks, clean debate state
+✅ Completed git hooks automation setup

@@ -1,0 +1,52 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════════════════════════
+# OpenClaw Post-Commit Hook — "Automatska dijagnostika posle commit-a"
+# ═══════════════════════════════════════════════════════════════════════════════
+# Lagane ne-blokirajuće provere posle svakog commit-a:
+#   1. Loguje commit u WORK_LOG.md
+#   2. Prikazuje commit statistiku
+#   3. Proverava da li su souls/ fajlovi ažurirani kad se menja debate_engine.py
+# ═══════════════════════════════════════════════════════════════════════════════
+
+PROJECT_DIR="$(git rev-parse --show-toplevel)"
+COMMIT_HASH=$(git log --oneline -1 --format='%h')
+COMMIT_MSG=$(git log --oneline -1 --format='%s')
+COMMIT_AUTHOR=$(git log -1 --format='%an')
+
+yellow() { printf "\033[33m%s\033[0m\n" "$*"; }
+green()  { printf "\033[32m%s\033[0m\n" "$*"; }
+dim()    { printf "\033[2m%s\033[0m\n" "$*"; }
+
+echo ""
+green "📦 Commit ${COMMIT_HASH}: ${COMMIT_MSG}"
+dim "   Autor: ${COMMIT_AUTHOR} | $(date '+%Y-%m-%d %H:%M:%S')"
+
+# ── Stats ────────────────────────────────────────────────────────────────────
+STATS=$(git diff --stat HEAD~1..HEAD 2>/dev/null | tail -1 || echo "")
+if [ -n "$STATS" ]; then
+    dim "   ${STATS}"
+fi
+
+# ── Cross-check: debate_engine menjana ali souls/ nije? ──────────────────────
+CHANGED_FILES=$(git diff --name-only HEAD~1..HEAD 2>/dev/null || echo "")
+if echo "$CHANGED_FILES" | grep -q "debate_engine.py"; then
+    if ! echo "$CHANGED_FILES" | grep -q "souls/"; then
+        yellow "  ⚠️  debate_engine.py promenjen ali souls/ fajlovi nisu ažurirani — proveri da li ID-jevi u souls/ odgovaraju"
+    fi
+fi
+
+# ── Cross-check: openclaw.json menjano ali brain_core.py/discord_bot.py nije? ─
+if echo "$CHANGED_FILES" | grep -q "openclaw.json"; then
+    MISSING=""
+    if ! echo "$CHANGED_FILES" | grep -q "brain_core.py"; then
+        MISSING="${MISSING} brain_core.py"
+    fi
+    if ! echo "$CHANGED_FILES" | grep -q "discord_bot.py"; then
+        MISSING="${MISSING} discord_bot.py"
+    fi
+    if [ -n "$MISSING" ]; then
+        yellow "  ⚠️  openclaw.json promenjen ali${MISSING} nije — proveri sinhronizaciju ID-jeva"
+    fi
+fi
+
+echo ""
