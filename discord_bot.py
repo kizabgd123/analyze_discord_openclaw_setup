@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 try:
     from brain_core import BrainCore
     from judge_guard import JudgeGuard
-    from debate_engine import MultiAgentDebateManager, DEFAULT_PERSONAS, DebateSession
+    from adk_orchestration import adk_manager, MikiNosonjaOrchestrator
     _BRAIN_AVAILABLE = True
 except ImportError as _brain_import_err:
     _BRAIN_AVAILABLE = False
@@ -1296,73 +1296,58 @@ debate_group = app_commands.Group(
 
 @debate_group.command(
     name="start",
-    description="🚀 Pokreni strukturisanu debatu između 5 botova sa posebnim sveskama"
+    description="🚀 Pokreni dinamičku Google ADK 2.0 orkestraciju agenata (Miki Nosonja)"
 )
 @app_commands.describe(
-    tema="Glavna tema, problem ili pitanje oko koga botovi debatuju",
-    runde="Broj rundi debate (podrazumevano: 2 runde, max 5)",
-    moderator_sveska="Opciono: Sveska za Moderatora (Švaba)",
-    arhitekta_sveska="Opciono: Sveska za Tehničkog Arhitektu (Ekser)",
-    kriticar_sveska="Opciono: Sveska za Bezbednosnog Skeptika (Pikac)",
-    strateg_sveska="Opciono: Sveska za Biznis Stratega (Dule Pacov)",
-    evaluator_sveska="Opciono: Sveska za Vrhovnog Sudiju (Babac)"
-)
-@app_commands.autocomplete(
-    moderator_sveska=notebook_autocomplete,
-    arhitekta_sveska=notebook_autocomplete,
-    kriticar_sveska=notebook_autocomplete,
-    strateg_sveska=notebook_autocomplete,
-    evaluator_sveska=notebook_autocomplete
+    tema="Glavna tema, problem ili pitanje oko koga Miki Nosonja i agenti rade"
 )
 async def debate_start_slash(
     interaction: discord.Interaction,
     tema: str,
-    runde: Optional[int] = 2,
-    moderator_sveska: Optional[str] = None,
-    arhitekta_sveska: Optional[str] = None,
-    kriticar_sveska: Optional[str] = None,
-    strateg_sveska: Optional[str] = None,
-    evaluator_sveska: Optional[str] = None
 ):
     await interaction.response.defer()
-    channel_id = interaction.channel_id
+    channel = interaction.channel
 
-    custom_nbs = {}
-    if moderator_sveska: custom_nbs["moderator"] = moderator_sveska
-    if arhitekta_sveska: custom_nbs["architect"] = arhitekta_sveska
-    if kriticar_sveska: custom_nbs["critic"] = kriticar_sveska
-    if strateg_sveska: custom_nbs["strategist"] = strateg_sveska
-    if evaluator_sveska: custom_nbs["evaluator"] = evaluator_sveska
-
-    session = debate_mgr.create_session(
-        channel_id=channel_id,
-        topic=tema,
-        rounds=runde or 2,
-        custom_notebooks=custom_nbs
-    )
-
-    # Resolve friendly titles for personas
-    for p in session.personas:
-        p["notebook_title"] = nlm.get_cached_title(p["default_notebook_id"])
-
-    # Intro embed
-    embed = discord.Embed(
-        title="🎙️ MULTI-AGENT DEBATA POKRENUTA",
-        description=f"**Tema:** {tema}\n**Broj Rundi:** `{session.total_rounds}`\n**Broj Učesnika:** `5 Botova sa zasebnim Google NotebookLM sveskama`",
+    intro_embed = discord.Embed(
+        title="🎙️ MIKI NOSONJA — GOOGLE ADK 2.0 ORKESTRACIJA POKRENUTA",
+        description=(
+            f"**Zadatak:** {tema}\n\n"
+            f"📡 **Protokol:** Google ADK 2.0 Dynamic Role Engine\n"
+            f"📖 **Baza znanja:** Google NotebookLM (`3bd81caf-9396-4593-ad18-4a98dc1a2115`)\n"
+            f"⚡ **Izvršavanje:** Cloud Ollama / Antigravity agy CLI sa rotacijom naloga"
+        ),
         color=0x4285F4
     )
-    for p in session.personas:
-        embed.add_field(
-            name=f"{p['name']}",
-            value=f"• Uloga: *{p['role']}*\n• Sveska: **{p['notebook_title']}** (`{p['default_notebook_id'][:8]}...`)",
-            inline=False
+    intro_embed.set_footer(text="OpenClaw ADK Engine • Zero Mock")
+    await interaction.followup.send(embed=intro_embed)
+
+    async def on_event(author: str, text: str):
+        color = 0x9333EA if "Miki" in author else 0x34A853
+        event_embed = discord.Embed(
+            title=f"🤖 {author}",
+            description=text[:4000],
+            color=color
         )
-    embed.set_footer(text="OpenClaw Sovereign AI OS • Google NotebookLM Engine")
+        event_embed.set_footer(text="Google ADK 2.0 • Sveska 3bd81caf-9396")
+        try:
+            await channel.send(embed=event_embed)
+        except Exception as e:
+            logger.warning(f"Discord slanje nije uspelo: {e}")
 
-    control_view = DebateControlView(channel_id)
-    await interaction.followup.send(embed=embed, view=control_view)
-
-    debate_mgr.start_debate(bot, channel_id)
+    try:
+        asyncio.create_task(
+            adk_manager.execute_orchestration(
+                user_task=tema,
+                on_event_callback=on_event
+            )
+        )
+    except Exception as exc:
+        err_embed = discord.Embed(
+            title="❌ Greška pri pokretanju ADK orkestracije",
+            description=str(exc),
+            color=0xEA4335
+        )
+        await channel.send(embed=err_embed)
 
 
 @debate_group.command(
@@ -1508,23 +1493,46 @@ async def debate_prefix_group(ctx):
 
 @debate_prefix_group.command(name="start")
 async def debate_start_prefix(ctx, *, tema: str):
-    session = debate_mgr.create_session(channel_id=ctx.channel.id, topic=tema, rounds=2)
-    for p in session.personas:
-        p["notebook_title"] = nlm.get_cached_title(p["default_notebook_id"])
-
-    embed = discord.Embed(
-        title="🎙️ MULTI-AGENT DEBATA POKRENUTA",
-        description=f"**Tema:** {tema}\n**Broj Rundi:** `{session.total_rounds}`\n**Broj Učesnika:** `5 Botova sa zasebnim sveskama`",
+    intro_embed = discord.Embed(
+        title="🎙️ MIKI NOSONJA — GOOGLE ADK 2.0 ORKESTRACIJA POKRENUTA",
+        description=(
+            f"**Zadatak:** {tema}\n\n"
+            f"📡 **Protokol:** Google ADK 2.0 Dynamic Role Engine\n"
+            f"📖 **Baza znanja:** Google NotebookLM (`3bd81caf-9396-4593-ad18-4a98dc1a2115`)\n"
+            f"⚡ **Izvršavanje:** Cloud Ollama / Antigravity agy CLI sa rotacijom naloga"
+        ),
         color=0x4285F4
     )
-    for p in session.personas:
-        embed.add_field(
-            name=f"{p['name']}",
-            value=f"• Uloga: *{p['role']}*\n• Sveska: **{p['notebook_title']}** (`{p['default_notebook_id'][:8]}...`)",
-            inline=False
+    intro_embed.set_footer(text="OpenClaw ADK Engine • Zero Mock")
+    await ctx.send(embed=intro_embed)
+
+    async def on_event(author: str, text: str):
+        color = 0x9333EA if "Miki" in author else 0x34A853
+        event_embed = discord.Embed(
+            title=f"🤖 {author}",
+            description=text[:4000],
+            color=color
         )
-    await ctx.send(embed=embed, view=DebateControlView(ctx.channel.id))
-    debate_mgr.start_debate(bot, ctx.channel.id)
+        event_embed.set_footer(text="Google ADK 2.0 • Sveska 3bd81caf-9396")
+        try:
+            await ctx.send(embed=event_embed)
+        except Exception as e:
+            logger.warning(f"Discord slanje nije uspelo: {e}")
+
+    try:
+        asyncio.create_task(
+            adk_manager.execute_orchestration(
+                user_task=tema,
+                on_event_callback=on_event
+            )
+        )
+    except Exception as exc:
+        err_embed = discord.Embed(
+            title="❌ Greška pri pokretanju ADK orkestracije",
+            description=str(exc),
+            color=0xEA4335
+        )
+        await ctx.send(embed=err_embed)
 
 @debate_prefix_group.command(name="pause")
 async def debate_pause_prefix(ctx):
