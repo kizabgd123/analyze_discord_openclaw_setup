@@ -120,3 +120,17 @@ class RAGRepository:
         except Exception as exc:
             capture_exception(exc)
             return 0
+
+    def list_documents(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Returns recent indexed documents."""
+        try:
+            with self._get_connection() as conn:
+                cur = conn.execute(
+                    "SELECT id, source, title, body, created_at FROM rag_meta ORDER BY created_at DESC LIMIT ?",
+                    (limit,),
+                )
+                rows = cur.fetchall()
+                return [dict(r) for r in rows]
+        except Exception as exc:
+            capture_exception(exc)
+            return []

@@ -2,6 +2,7 @@ from .nlm_schemas import AskQuerySchema, AddNoteSchema, AddUrlSchema, SelectNote
 from .debate_schemas import StartDebateSchema, ActionApprovalSchema
 from .system_schemas import ShellCommandSchema
 from .litert_schemas import LiteRTChatSchema, LiteRTConfigUpdateSchema
+from .dashboard_schemas import DashboardChatRequestSchema, RAGSearchRequestSchema
 
 __all__ = [
     "AskQuerySchema",
@@ -13,4 +14,6 @@ __all__ = [
     "ShellCommandSchema",
     "LiteRTChatSchema",
     "LiteRTConfigUpdateSchema",
+    "DashboardChatRequestSchema",
+    "RAGSearchRequestSchema",
 ]
