@@ -183,7 +183,7 @@ class LiteRTConfig(BaseModel):
 
 class LocalOpenAIConfig(BaseModel):
     model: str = Field(
-        default_factory=lambda: os.getenv("LOCAL_OPENAI_MODEL", "gemma4:26b"),
+        default_factory=lambda: os.getenv("LOCAL_OPENAI_MODEL", "gemma2:2b"),
         description="Model identifier registered on local OpenAI-compatible server"
     )
     base_url: str = Field(
@@ -191,7 +191,7 @@ class LocalOpenAIConfig(BaseModel):
         description="URL of external local server's OpenAI-compatible endpoint"
     )
     enabled: bool = Field(
-        default_factory=lambda: os.getenv("LOCAL_OPENAI_ENABLED", "false").lower() in ("true", "1", "yes"),
+        default_factory=lambda: os.getenv("LOCAL_OPENAI_ENABLED", "true").lower() in ("true", "1", "yes"),
         description="Flag indicating if external LocalOpenAI execution is enabled"
     )
     apply_lightweight: bool = Field(

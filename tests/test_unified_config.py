@@ -47,7 +47,7 @@ class TestUnifiedConfig(unittest.TestCase):
         self.assertIsInstance(config.litert.allow_all_tools, bool)
 
     def test_local_openai_config(self):
-        self.assertEqual(config.local_openai.model, "gemma4:26b")
+        self.assertEqual(config.local_openai.model, "gemma2:2b")
         self.assertIn("11434", config.local_openai.base_url)
         self.assertIsInstance(config.local_openai.enabled, bool)
         self.assertIsInstance(config.local_openai.apply_lightweight, bool)

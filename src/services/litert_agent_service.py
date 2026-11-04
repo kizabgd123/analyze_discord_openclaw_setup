@@ -20,6 +20,7 @@ from google.antigravity import (
     LiteRTBackend,
     LocalOpenAIAgentConfig,
     CompactionConfig,
+    CapabilitiesConfig,
 )
 from google.antigravity.hooks import policy
 
@@ -217,11 +218,18 @@ class LiteRTAgentService:
         if system_instructions:
             kwargs["system_instructions"] = system_instructions
 
-        if policies:
+        # Check if model supports tools in Ollama (e.g. gemma2 does not support tool calling)
+        model_name_lower = target_model.lower()
+        supports_tools = not any(no_tool in model_name_lower for no_tool in ("gemma2", "gemma-2", "nomic"))
+
+        if not supports_tools:
+            kwargs["capabilities"] = CapabilitiesConfig(enabled_tools=[])
+            policies = None
+        elif policies:
             kwargs["policies"] = policies
 
         cfg = LocalOpenAIAgentConfig(**kwargs)
-        if self.cfg.local_openai.apply_lightweight:
+        if self.cfg.local_openai.apply_lightweight and supports_tools:
             cfg = cfg.lightweight()
         return cfg
 
