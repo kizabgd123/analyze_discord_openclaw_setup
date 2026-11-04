@@ -8,6 +8,7 @@ connecting RAG, multi-agent debates, research benchmarks, local LLM, and governa
 import json
 import logging
 import re
+import asyncio
 from pathlib import Path
 from typing import Dict, Any, List, Optional, AsyncGenerator
 
@@ -378,10 +379,11 @@ class DashboardDataService:
         # Generate response using unified LLM client or LiteRT
         try:
             prefer_local = (provider == "litert")
-            response_text = await gemini_client.query_llm(
+            response_text = await asyncio.to_thread(
+                gemini_client.query_llm,
                 prompt=full_prompt,
-                system_instruction=system_prompt,
-                prefer_litert=prefer_local
+                system=system_prompt,
+                prefer_litert=prefer_local,
             )
 
             # Stream words to simulate streaming token delivery over SSE
