@@ -6,6 +6,7 @@ Uses Google AI Edge LiteRT runtime (.litertlm models) and supports external Open
 """
 
 import os
+import sys
 import shutil
 import logging
 import asyncio
@@ -90,8 +91,13 @@ class LiteRTAgentService:
         model_exists = model_path.is_file()
         model_size_mb = (model_path.stat().st_size / (1024 * 1024)) if model_exists else 0.0
 
-        litert_lm_bin = shutil.which("litert-lm") or os.path.expanduser("~/.local/bin/litert-lm")
-        cli_available = os.path.exists(litert_lm_bin) or (shutil.which("litert-lm") is not None)
+        litert_lm_bin = (
+            shutil.which("litert-lm")
+            or (Path(sys.prefix) / "bin" / "litert-lm")
+            or (Path(__file__).resolve().parent.parent.parent / ".venv" / "bin" / "litert-lm")
+            or os.path.expanduser("~/.local/bin/litert-lm")
+        )
+        cli_available = os.path.exists(str(litert_lm_bin)) or (shutil.which("litert-lm") is not None)
 
         imported_models: List[str] = []
         models_dir = Path(os.path.expanduser("~/.litert-lm/models"))
