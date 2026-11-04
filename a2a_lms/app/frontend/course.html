@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Masterclass Lekcija — Google ADK A2A LMS</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="lms-navbar">
+        <div class="container" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <div class="brand-badge">
+                <a href="index.html" style="text-decoration: none; color: inherit;">⚡ ADK 2.0 Multi-Agent LMS</a>
+                <span class="brand-pill" id="verification-badge">Verifikovano</span>
+            </div>
+            <div>
+                <a href="index.html" class="chapter-chip" style="text-decoration: none;">← Nova Tema</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container" style="padding-top: 32px; padding-bottom: 64px;">
+        <!-- Course Header -->
+        <div style="margin-bottom: 24px;">
+            <div style="font-size: 0.85rem; color: var(--accent-blue); font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">
+                Zvanični Masterclass Program
+            </div>
+            <h1 id="course-header-topic" style="font-size: 2.2rem; margin: 8px 0; font-weight: 800;">
+                Učitavanje sadržaja kursa...
+            </h1>
+        </div>
+
+        <!-- Module 1: Masterclass Video Player -->
+        <section class="video-module-wrapper">
+            <h3 style="margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                <span>▶ Autentično Video Predavanje i Vremenska Poglavlja</span>
+            </h3>
+            <div class="video-player-container">
+                <iframe id="masterclass-iframe" 
+                        src="about:blank" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen></iframe>
+            </div>
+            <div id="chapter-bar-container" class="chapter-bar-container">
+                <!-- Dynamically populated interactive chapter chips -->
+            </div>
+        </section>
+
+        <!-- Course Curriculum Body (Modules 1 - 7) -->
+        <article id="course-content-container" style="margin-bottom: 48px;">
+            <!-- Populated from Markdown via course.js -->
+        </article>
+
+        <!-- Module 3: 3D Active Recall Flashcards -->
+        <section style="margin: 40px 0;">
+            <h2 style="font-size: 1.5rem; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                <span>🗂️ Interaktivne 3D Fleš-Kartice za Pamćenje</span>
+            </h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                Kliknite na karticu da biste je okrenuli i proverili ključne definicije i mentalne modele.
+            </p>
+            <div id="flashcards-container" class="flashcards-grid">
+                <!-- Dynamically populated 3D flip cards -->
+            </div>
+        </section>
+
+        <!-- Module 6: Universal Quiz Engine -->
+        <section class="quiz-section">
+            <div class="quiz-header">
+                <div>
+                    <h2 style="font-size: 1.5rem; margin-bottom: 4px;">🧠 Provera Znanja i Interaktivni Kviz</h2>
+                    <p style="color: var(--text-secondary); font-size: 0.95rem;">
+                        Izaberite tačne odgovore. Nakon uspešno položenog kviza otključava se sertifikat.
+                    </p>
+                </div>
+                <div id="quiz-score-badge" class="quiz-score-badge">Rezultat: 0 / 0</div>
+            </div>
+            <div id="quiz-questions-list">
+                <!-- Dynamically populated questions -->
+            </div>
+        </section>
+
+        <!-- Certificate Eligibility Banner -->
+        <div id="cert-banner" style="display: none; background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(56, 189, 248, 0.15)); border: 1px solid var(--accent-green); border-radius: var(--radius-md); padding: 24px; text-align: center; margin-top: 32px;">
+            <h3 style="color: #86efac; margin-bottom: 8px;">🎓 Čestitamo! Uspešno ste završili modul!</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                Zadovoljili ste kriterijume ocenjivanja Senior Judge agenta i položili kviz znanja.
+            </p>
+            <button onclick="openCertificateModal()" class="btn-generate" style="margin: 0 auto;">
+                <span>📜 Preuzmi Zvanični Sertifikat</span>
+            </button>
+        </div>
+    </main>
+
+    <!-- Certificate Modal (Module 7) -->
+    <div id="certificate-modal" class="modal-overlay">
+        <div class="certificate-card">
+            <div style="font-size: 0.85rem; color: #b45309; text-transform: uppercase; font-weight: 700; letter-spacing: 1px;">
+                Google Agent Development Kit & A2A Protokol
+            </div>
+            <h2 class="cert-title">Sertifikat o Uspešnom Završetku</h2>
+            <p style="font-style: italic; color: #555; margin-top: 8px;">Ovim se potvrđuje da je</p>
+            <div id="cert-student-name" class="cert-name">Polaznik Obrazovnog Programa</div>
+            <p style="font-size: 1rem; color: #333; max-width: 550px; margin: 0 auto;">
+                uspešno položio rigoroznu agencijsku evaluaciju, usvojio mentalne modele i savladao sve interaktivne zahteve za temu:
+            </p>
+            <h3 id="cert-course-topic" style="margin: 12px 0; color: #1e3a8a; font-size: 1.3rem;">[Tema Kursa]</h3>
+            
+            <div class="cert-footer">
+                <div style="text-align: left; font-size: 0.85rem; color: #666;">
+                    <div>Datum: <strong id="cert-issue-date">2026-11-05</strong></div>
+                    <div>Verifikacioni Hash: <span id="cert-verification-hash" style="font-family: var(--font-mono); font-size: 0.75rem; color: #1e3a8a;">ADK-VERIFIED</span></div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-weight: 700; color: #92400e; font-size: 0.95rem;">ADK Multi-Agent Quorum</div>
+                    <div style="font-size: 0.8rem; color: #78350f;">Verified Grounded Brain</div>
+                </div>
+            </div>
+
+            <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: center;">
+                <button id="btn-print-cert" class="btn-generate" style="background: #1e3a8a; font-size: 0.9rem; padding: 10px 20px;">
+                    🖨️ Štampaj / Sačuvaj kao PDF
+                </button>
+                <button id="btn-close-cert" class="chapter-chip" style="font-size: 0.9rem; padding: 10px 20px;">
+                    Zatvori
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="course.js"></script>
+</body>
+</html>

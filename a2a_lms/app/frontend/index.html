@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google ADK A2A Multi-Agent LMS — Launchpad</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="lms-navbar">
+        <div class="container" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <div class="brand-badge">
+                <span>⚡ ADK 2.0 Multi-Agent LMS</span>
+                <span class="brand-pill">A2A Protocol</span>
+            </div>
+            <div>
+                <span style="font-size: 0.85rem; color: var(--text-muted); font-family: var(--font-mono);">Zero-Mock Grounded Brain</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="hero-section">
+            <h1 class="hero-title">Kreirajte Autentičan Masterclass Kurs</h1>
+            <p class="hero-subtitle">
+                Zasnovano na zvaničnom Google ADK A2A protokolu 2026. Autonomni istraživači, sudije i pisci kurikuluma
+                sintetišu znanje iz NotebookLM sveske uz autentične YouTube video lekcije.
+            </p>
+
+            <div class="launchpad-card">
+                <form id="course-form" onsubmit="event.preventDefault(); startGeneration();">
+                    <div class="topic-input-group">
+                        <input type="text" id="topic-input" class="topic-input" 
+                               placeholder="Unesite temu kursa (npr. Google ADK A2A Multi-Agent Arhitektura)..." 
+                               value="Google ADK A2A Multi-Agent Sistemi" required>
+                        <button type="submit" id="btn-submit" class="btn-generate">
+                            <span>🚀 Pokreni Kurs</span>
+                        </button>
+                    </div>
+                </form>
+
+                <div style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
+                    <span style="font-size: 0.8rem; color: var(--text-muted); align-self: center;">Brzi primeri:</span>
+                    <button class="chapter-chip" onclick="setTopic('Google ADK A2A Multi-Agent Arhitektura 2026')">🤖 Google ADK 2026</button>
+                    <button class="chapter-chip" onclick="setTopic('Stoni tenis - Bekhend top-spin protiv rezane lopte')">🏓 Stoni Tenis Top-spin</button>
+                    <button class="chapter-chip" onclick="setTopic('AlphaFold i Biomolekularna Struktura Proteina')">🧬 Biomolekuli i Proteini</button>
+                </div>
+
+                <div id="sse-console" class="sse-console">
+                    <div class="sse-line" style="color: var(--text-muted);">// Status agencijskog toka (SSE Stream)...</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        function setTopic(val) {
+            document.querySelector('#topic-input').value = val;
+        }
+
+        async function startGeneration() {
+            const topic = document.querySelector('#topic-input').value.trim();
+            if (!topic) return;
+
+            const btn = document.querySelector('#btn-submit');
+            const consoleEl = document.querySelector('#sse-console');
+            btn.disabled = true;
+            btn.innerHTML = '<span>⏳ Agenti rade...</span>';
+            consoleEl.style.display = 'block';
+            consoleEl.innerHTML = '<div class="sse-line" style="color: var(--text-muted);">[A2A] Povezivanje sa orkestratorom...</div>';
+
+            try {
+                const response = await fetch('/api/generate_course', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic: topic })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server returned HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                consoleEl.innerHTML += `<div class="sse-line" style="color: var(--accent-green);">[USPEH] Kurs generisan sa verifikacionim hash-om: ${data.verification_hash}</div>`;
+                
+                // Store in session and navigate
+                sessionStorage.setItem('active_lms_course', JSON.stringify(data));
+                setTimeout(() => {
+                    window.location.href = 'course.html';
+                }, 1200);
+
+            } catch (err) {
+                console.error(err);
+                consoleEl.innerHTML += `<div class="sse-line" style="color: var(--accent-red);">[GREŠKA] ${err.message}</div>`;
+                btn.disabled = false;
+                btn.innerHTML = '<span>🚀 Pokreni Kurs</span>';
+            }
+        }
+    </script>
+</body>
+</html>
