@@ -34,6 +34,14 @@ from a2tools_runtime import tools_runtime, ORCHESTRATION_NOTEBOOK_ID
 logger = logging.getLogger("ADKOrchestration")
 
 
+def sanitize_adk_identifier(name: str) -> str:
+    """Osigurava da je ime agenta validan Python identifikator za Google ADK 2.0 BaseAgent."""
+    cleaned = re.sub(r'[^a-zA-Z0-9_]', '_', name).strip('_')
+    if not cleaned or not cleaned[0].isalpha():
+        cleaned = f"Agent_{cleaned}".strip('_')
+    return cleaned
+
+
 # ── 1. DYNAMIC AGENT REPRESENTATION ──────────────────────────────────────────
 
 class DynamicWorkerAgent(BaseAgent):
@@ -160,14 +168,26 @@ class MikiNosonjaOrchestrator:
         )
 
         loop = asyncio.get_running_loop()
-        raw_json = await loop.run_in_executor(
-            None,
-            lambda: query_agy_cli(
-                prompt=distribution_prompt,
-                system="Ti si Miki Nosonja. Vrati ISKLJUČIVO validan JSON niz sa ulogama i instrukcijama.",
-                timeout=120
+        try:
+            raw_json = await loop.run_in_executor(
+                None,
+                lambda: query_agy_cli(
+                    prompt=distribution_prompt,
+                    system="Ti si Miki Nosonja. Vrati ISKLJUČIVO validan JSON niz sa ulogama i instrukcijama.",
+                    timeout=150
+                )
             )
-        )
+        except Exception as agy_err:
+            logger.warning(f"[Miki Nosonja] agy CLI raspodela nije uspela ({agy_err}), prelazim na Cloud Ollama fallback...")
+            raw_json = await loop.run_in_executor(
+                None,
+                lambda: query_llm(
+                    prompt=distribution_prompt,
+                    system="Ti si Miki Nosonja. Vrati ISKLJUČIVO validan JSON niz sa ulogama i instrukcijama.",
+                    prefer_cloud_ollama=True,
+                    timeout=90
+                )
+            )
 
         agents_data = []
         try:
@@ -192,8 +212,20 @@ class MikiNosonjaOrchestrator:
                 }
             ]
 
-        logger.info(f"[Miki Nosonja] Dodeljeno ukupno {len(agents_data)} agenata.")
-        return agents_data
+        # Sanitizacija imena agenata za Google ADK 2.0 BaseAgent
+        sanitized_roles = []
+        for a in agents_data:
+            raw_name = a.get("name", "Agent")
+            clean_name = sanitize_adk_identifier(raw_name)
+            sanitized_roles.append({
+                "name": clean_name,
+                "display_name": raw_name,
+                "role": a.get("role", "Radni agent"),
+                "instruction": a.get("instruction", "")
+            })
+
+        logger.info(f"[Miki Nosonja] Dodeljeno ukupno {len(sanitized_roles)} agenata.")
+        return sanitized_roles
 
     async def execute_orchestration(
         self,
@@ -254,11 +286,12 @@ class MikiNosonjaOrchestrator:
 
         for role_spec in assigned_roles:
             agent_name = role_spec.get("name", "Agent")
+            display_name = role_spec.get("display_name", agent_name)
             agent_instruction = role_spec.get("instruction", "")
             agent_role = role_spec.get("role", "")
 
             if on_event_callback:
-                await on_event_callback(agent_name, f"⚡ Preuzimam zadatak: *{agent_role}*...")
+                await on_event_callback(display_name, f"⚡ Preuzimam zadatak: *{agent_role}*...")
 
             worker = DynamicWorkerAgent(
                 name=agent_name,
@@ -275,25 +308,38 @@ class MikiNosonjaOrchestrator:
 
             if on_event_callback:
                 out_preview = out[:400] + "..." if len(out) > 400 else out
-                await on_event_callback(agent_name, f"✅ Završeno:\n{out_preview}")
+                await on_event_callback(display_name, f"✅ Završeno:\n{out_preview}")
 
         # Finalna sinteza od strane Mikija Nosonje
+        nb_summary = notebook_knowledge if len(notebook_knowledge) <= 12000 else notebook_knowledge[:12000] + "\n...(izvod iz baze znanja)..."
         synthesis_prompt = (
             f"Korisnik je postavio zadatak: '{user_task}'\n\n"
-            f"Znanje iz NotebookLM sveske:\n{notebook_knowledge}\n\n"
+            f"Znanje iz NotebookLM sveske:\n{nb_summary}\n\n"
             f"Radovi agenata:\n{state['shared_workspace']}\n\n"
             f"Kao Miki Nosonja, daj konačan, sažet, direktan i 100% inženjerski tačan odgovor za korisnika."
         )
 
         loop = asyncio.get_running_loop()
-        final_answer = await loop.run_in_executor(
-            None,
-            lambda: query_agy_cli(
-                prompt=synthesis_prompt,
-                system="Ti si Miki Nosonja. Daj konačan, udaran i inženjerski precizan rezime rada agenata.",
-                timeout=120
+        try:
+            final_answer = await loop.run_in_executor(
+                None,
+                lambda: query_agy_cli(
+                    prompt=synthesis_prompt,
+                    system="Ti si Miki Nosonja. Daj konačan, udaran i inženjerski precizan rezime rada agenata.",
+                    timeout=150
+                )
             )
-        )
+        except Exception as agy_err:
+            logger.warning(f"[Miki Nosonja] agy CLI sinteza nije uspela ({agy_err}), prelazim na Cloud Ollama fallback...")
+            final_answer = await loop.run_in_executor(
+                None,
+                lambda: query_llm(
+                    prompt=synthesis_prompt,
+                    system="Ti si Miki Nosonja. Daj konačan, udaran i inženjerski precizan rezime rada agenata.",
+                    prefer_cloud_ollama=True,
+                    timeout=100
+                )
+            )
 
         if on_event_callback:
             await on_event_callback("Miki Nosonja (Konačni Odgovor)", f"🏆 **Konačno Rešenje:**\n{final_answer}")

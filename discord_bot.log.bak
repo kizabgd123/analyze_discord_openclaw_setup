@@ -1,9 +1,94 @@
-2026-08-13 19:39:47,376 [WARNING] PyNaCl is not installed, voice will NOT be supported
-2026-08-13 19:39:47,376 [WARNING] davey is not installed, voice will NOT be supported
-[2026-08-13 19:39:47] [INFO    ] discord.client: logging in using static token
-2026-08-13 19:39:47,379 [INFO] logging in using static token
-[2026-08-13 19:39:48] [INFO    ] discord.gateway: Shard ID None has connected to Gateway (Session ID: 49370757bf12196ed43d29cb3c1b759e).
-2026-08-13 19:39:48,723 [INFO] Shard ID None has connected to Gateway (Session ID: 49370757bf12196ed43d29cb3c1b759e).
-2026-08-13 19:39:50,738 [INFO] ✅ Discord OpenClaw bot PokerOrchestrator#7220 je online! Ruter je aktivan.
-2026-08-13 19:39:50,739 [INFO] 💓 HEARTBEAT aktiviran. Proveravam zadatke...
-2026-08-13 19:39:50,740 [INFO] [Gemini Mozak] Šaljem upit Mozgu...
+2026-11-03 20:19:31,535 [JudgeGuard] INFO: BrainCore initialised | db=/home/kizamladjanijebac/Desktop/discord-openclaw/antigravity_rag.db | nlm=/home/kizamladjanijebac/.local/bin/nlm
+2026-11-03 20:19:31,535 [JudgeGuard] INFO: ✅ BrainCore + JudgeGuard + DebateEngine singletons aktivni
+2026-11-03 20:19:31,538 [JudgeGuard] WARNING: PyNaCl is not installed, voice will NOT be supported
+2026-11-03 20:19:31,538 [JudgeGuard] WARNING: davey is not installed, voice will NOT be supported
+2026-11-03 20:19:31,541 [JudgeGuard] INFO: Pokretanje Discord NotebookLM bota sa Slash Komandama...
+[2026-11-03 20:19:31] [INFO    ] discord.client: logging in using static token
+2026-11-03 20:19:31,541 [JudgeGuard] INFO: logging in using static token
+[2026-11-03 20:19:33] [INFO    ] discord.gateway: Shard ID None has connected to Gateway (Session ID: d047051da1682bd57e24b0eb524485a3).
+2026-11-03 20:19:33,326 [JudgeGuard] INFO: Shard ID None has connected to Gateway (Session ID: d047051da1682bd57e24b0eb524485a3).
+2026-11-03 20:19:35,338 [JudgeGuard] INFO: ✅ Discord Bot [PokerOrchestrator#7220] je uspešno ulogovan!
+2026-11-03 20:19:35,338 [JudgeGuard] INFO: 📚 Podrazumevana Google NotebookLM sveska: 06da0502-7e35-4d6f-bf28-3de316dc0437
+2026-11-03 20:19:37,733 [JudgeGuard] INFO: Keširano 50 NotebookLM svezaka.
+2026-11-03 20:19:38,112 [JudgeGuard] INFO: ⚡ Sinhronizovano 13 Slash komandi (Application Commands)!
+2026-11-03 20:19:38,113 [JudgeGuard] INFO: 💓 HEARTBEAT aktiviran.
+2026-11-03 20:19:38,124 [JudgeGuard] INFO: Heartbeat zadaci: # Scheduled Tasks
+- Svakih 30 minuta: Javi se na Discord (ako ima nešto hitno) ili samo loguj "Sve j...
+2026-11-03 20:23:02,809 [JudgeGuard] INFO: [Miki Nosonja] Šaljem korisničko pitanje NotebookLM svesci 3bd81caf-9396-4593-ad18-4a98dc1a2115...
+2026-11-03 20:24:03,179 [JudgeGuard] INFO: [Miki Nosonja] Uspešno dobijen odgovor od NotebookLM (60801 karaktera).
+2026-11-03 20:24:04,038 [JudgeGuard] INFO: [Miki Nosonja] Dodeljujem uloge i upisujem promptove agentima...
+2026-11-03 20:24:04,039 [JudgeGuard] INFO: [Miki Nosonja / agy-cli] Pokrećem agy CLI | nalog=promo@mrcleanervracar.com | model=gemini-3.8-flash-high
+2026-11-03 20:25:27,353 [JudgeGuard] INFO: [Miki Nosonja] Dodeljeno ukupno 5 agenata.
+2026-11-03 20:25:29,373 [JudgeGuard] INFO: [Validation_and_Baseline_Lead] Izvršavam dodeljeni zadatak preko Cloud Ollama / Gemini CLI...
+2026-11-03 20:25:39,484 [JudgeGuard] INFO: HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+2026-11-03 20:25:39,485 [JudgeGuard] INFO: Ollama Cloud success | model=gemma4:31b-cloud
+2026-11-03 20:25:40,290 [JudgeGuard] INFO: [Data_and_Feature_Lead] Izvršavam dodeljeni zadatak preko Cloud Ollama / Gemini CLI...
+2026-11-03 20:25:52,994 [JudgeGuard] INFO: HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+2026-11-03 20:25:52,995 [JudgeGuard] INFO: Ollama Cloud success | model=gemma4:31b-cloud
+2026-11-03 20:25:54,449 [JudgeGuard] INFO: [LLM_Modeling_Lead] Izvršavam dodeljeni zadatak preko Cloud Ollama / Gemini CLI...
+2026-11-03 20:26:05,538 [JudgeGuard] INFO: HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+2026-11-03 20:26:05,539 [JudgeGuard] INFO: Ollama Cloud success | model=gemma4:31b-cloud
+2026-11-03 20:26:06,453 [JudgeGuard] INFO: [Ensemble_and_PostProcessing_Lead] Izvršavam dodeljeni zadatak preko Cloud Ollama / Gemini CLI...
+2026-11-03 20:26:24,002 [JudgeGuard] INFO: HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+2026-11-03 20:26:24,002 [JudgeGuard] INFO: Ollama Cloud success | model=gemma4:31b-cloud
+2026-11-03 20:26:25,251 [JudgeGuard] INFO: [Submission_and_Compliance_Guard] Izvršavam dodeljeni zadatak preko Cloud Ollama / Gemini CLI...
+2026-11-03 20:26:32,279 [JudgeGuard] INFO: HTTP Request: POST http://localhost:11434/api/generate "HTTP/1.1 200 OK"
+2026-11-03 20:26:32,280 [JudgeGuard] INFO: Ollama Cloud success | model=gemma4:31b-cloud
+2026-11-03 20:26:33,023 [JudgeGuard] INFO: [Miki Nosonja / agy-cli] Pokrećem agy CLI | nalog=kiza101288@gmail.com | model=gemini-3.8-flash-high
+2026-11-03 20:49:38,145 [JudgeGuard] INFO: 💓 HEARTBEAT aktiviran.
+2026-11-03 20:49:38,145 [JudgeGuard] INFO: Heartbeat zadaci: # Scheduled Tasks
+- Svakih 30 minuta: Javi se na Discord (ako ima nešto hitno) ili samo loguj "Sve j...
+[2026-11-03 21:03:45] [INFO    ] discord.gateway: Shard ID None has successfully RESUMED session d047051da1682bd57e24b0eb524485a3.
+2026-11-03 21:03:45,987 [JudgeGuard] INFO: Shard ID None has successfully RESUMED session d047051da1682bd57e24b0eb524485a3.
+2026-11-03 21:04:51,376 [JudgeGuard] INFO: [kizabgd123123] Chatting in 'OpenClaw Sovereign AI OS & Multi-Agent Orchestration 2026' (conv=None): Jesi siguran da si dobro uradio...
+2026-11-03 21:04:51,977 [JudgeGuard] INFO: [NLM Query] Notebook: 06da0502 | Conv: NEW | Q: Jesi siguran da si dobro uradio...
+[2026-11-03 21:07:19] [ERROR   ] discord.app_commands.tree: Ignoring exception in command 'start'
+Traceback (most recent call last):
+  File "/home/kizamladjanijebac/Desktop/discord-openclaw/venv/lib/python3.12/site-packages/discord/app_commands/commands.py", line 859, in _do_call
+    return await self._callback(interaction, **params)  # type: ignore
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kizamladjanijebac/Desktop/discord-openclaw/discord_bot.py", line 1309, in debate_start_slash
+    await interaction.response.defer()
+  File "/home/kizamladjanijebac/Desktop/discord-openclaw/venv/lib/python3.12/site-packages/discord/interactions.py", line 892, in defer
+    response = await adapter.create_interaction_response(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kizamladjanijebac/Desktop/discord-openclaw/venv/lib/python3.12/site-packages/discord/webhook/async_.py", line 224, in request
+    raise NotFound(response, data)
+discord.errors.NotFound: 404 Not Found (error code: 10062): Unknown interaction
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/kizamladjanijebac/Desktop/discord-openclaw/venv/lib/python3.12/site-packages/discord/app_commands/tree.py", line 1302, in _call
+    await command._invoke_with_namespace(interaction, namespace)
+  File "/home/kizamladjanijebac/Desktop/discord-openclaw/venv/lib/python3.12/site-packages/discord/app_commands/commands.py", line 884, in _invoke_with_namespace
+    return await self._do_call(interaction, transformed_values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kizamladjanijebac/Desktop/discord-openclaw/venv/lib/python3.12/site-packages/discord/app_commands/commands.py", line 877, in _do_call
+    raise CommandInvokeError(self, e) from e
+discord.app_commands.errors.CommandInvokeError: Command 'start' raised an exception: NotFound: 404 Not Found (error code: 10062): Unknown interaction
+2026-11-03 21:07:19,843 [JudgeGuard] ERROR: Ignoring exception in command 'start'
+Traceback (most recent call last):
+  File "/home/kizamladjanijebac/Desktop/discord-openclaw/venv/lib/python3.12/site-packages/discord/app_commands/commands.py", line 859, in _do_call
+    return await self._callback(interaction, **params)  # type: ignore
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kizamladjanijebac/Desktop/discord-openclaw/discord_bot.py", line 1309, in debate_start_slash
+    await interaction.response.defer()
+  File "/home/kizamladjanijebac/Desktop/discord-openclaw/venv/lib/python3.12/site-packages/discord/interactions.py", line 892, in defer
+    response = await adapter.create_interaction_response(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kizamladjanijebac/Desktop/discord-openclaw/venv/lib/python3.12/site-packages/discord/webhook/async_.py", line 224, in request
+    raise NotFound(response, data)
+discord.errors.NotFound: 404 Not Found (error code: 10062): Unknown interaction
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/kizamladjanijebac/Desktop/discord-openclaw/venv/lib/python3.12/site-packages/discord/app_commands/tree.py", line 1302, in _call
+    await command._invoke_with_namespace(interaction, namespace)
+  File "/home/kizamladjanijebac/Desktop/discord-openclaw/venv/lib/python3.12/site-packages/discord/app_commands/commands.py", line 884, in _invoke_with_namespace
+    return await self._do_call(interaction, transformed_values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kizamladjanijebac/Desktop/discord-openclaw/venv/lib/python3.12/site-packages/discord/app_commands/commands.py", line 877, in _do_call
+    raise CommandInvokeError(self, e) from e
+discord.app_commands.errors.CommandInvokeError: Command 'start' raised an exception: NotFound: 404 Not Found (error code: 10062): Unknown interaction

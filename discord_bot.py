@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 try:
     from brain_core import BrainCore
     from judge_guard import JudgeGuard
+    from debate_engine import MultiAgentDebateManager, DEFAULT_PERSONAS
     from adk_orchestration import adk_manager, MikiNosonjaOrchestrator
     _BRAIN_AVAILABLE = True
 except ImportError as _brain_import_err:
@@ -1323,31 +1324,40 @@ async def debate_start_slash(
 
     async def on_event(author: str, text: str):
         color = 0x9333EA if "Miki" in author else 0x34A853
-        event_embed = discord.Embed(
-            title=f"🤖 {author}",
-            description=text[:4000],
-            color=color
-        )
-        event_embed.set_footer(text="Google ADK 2.0 • Sveska 3bd81caf-9396")
-        try:
-            await channel.send(embed=event_embed)
-        except Exception as e:
-            logger.warning(f"Discord slanje nije uspelo: {e}")
+        max_chunk = 3800
+        chunks = [text[i:i+max_chunk] for i in range(0, len(text), max_chunk)] if text else ["(Prazan odgovor)"]
+        for idx, chunk in enumerate(chunks):
+            title = f"🤖 {author}" if idx == 0 else f"🤖 {author} (nastavak {idx+1}/{len(chunks)})"
+            event_embed = discord.Embed(
+                title=title,
+                description=chunk,
+                color=color
+            )
+            event_embed.set_footer(text="Google ADK 2.0 • Sveska 3bd81caf-9396")
+            try:
+                await channel.send(embed=event_embed)
+            except Exception as e:
+                logger.warning(f"Discord slanje nije uspelo: {e}")
 
-    try:
-        asyncio.create_task(
-            adk_manager.execute_orchestration(
+    async def run_adk_pipeline():
+        try:
+            await adk_manager.execute_orchestration(
                 user_task=tema,
                 on_event_callback=on_event
             )
-        )
-    except Exception as exc:
-        err_embed = discord.Embed(
-            title="❌ Greška pri pokretanju ADK orkestracije",
-            description=str(exc),
-            color=0xEA4335
-        )
-        await channel.send(embed=err_embed)
+        except Exception as exc:
+            logger.error(f"[ADK Pipeline] Greška: {exc}", exc_info=True)
+            err_embed = discord.Embed(
+                title="❌ Greška u izvršavanju ADK orkestracije",
+                description=f"```{str(exc)[:3800]}```",
+                color=0xEA4335
+            )
+            try:
+                await channel.send(embed=err_embed)
+            except Exception:
+                pass
+
+    asyncio.create_task(run_adk_pipeline())
 
 
 @debate_group.command(
@@ -1508,31 +1518,40 @@ async def debate_start_prefix(ctx, *, tema: str):
 
     async def on_event(author: str, text: str):
         color = 0x9333EA if "Miki" in author else 0x34A853
-        event_embed = discord.Embed(
-            title=f"🤖 {author}",
-            description=text[:4000],
-            color=color
-        )
-        event_embed.set_footer(text="Google ADK 2.0 • Sveska 3bd81caf-9396")
-        try:
-            await ctx.send(embed=event_embed)
-        except Exception as e:
-            logger.warning(f"Discord slanje nije uspelo: {e}")
+        max_chunk = 3800
+        chunks = [text[i:i+max_chunk] for i in range(0, len(text), max_chunk)] if text else ["(Prazan odgovor)"]
+        for idx, chunk in enumerate(chunks):
+            title = f"🤖 {author}" if idx == 0 else f"🤖 {author} (nastavak {idx+1}/{len(chunks)})"
+            event_embed = discord.Embed(
+                title=title,
+                description=chunk,
+                color=color
+            )
+            event_embed.set_footer(text="Google ADK 2.0 • Sveska 3bd81caf-9396")
+            try:
+                await ctx.send(embed=event_embed)
+            except Exception as e:
+                logger.warning(f"Discord slanje nije uspelo: {e}")
 
-    try:
-        asyncio.create_task(
-            adk_manager.execute_orchestration(
+    async def run_adk_pipeline():
+        try:
+            await adk_manager.execute_orchestration(
                 user_task=tema,
                 on_event_callback=on_event
             )
-        )
-    except Exception as exc:
-        err_embed = discord.Embed(
-            title="❌ Greška pri pokretanju ADK orkestracije",
-            description=str(exc),
-            color=0xEA4335
-        )
-        await ctx.send(embed=err_embed)
+        except Exception as exc:
+            logger.error(f"[ADK Pipeline Prefix] Greška: {exc}", exc_info=True)
+            err_embed = discord.Embed(
+                title="❌ Greška u izvršavanju ADK orkestracije",
+                description=f"```{str(exc)[:3800]}```",
+                color=0xEA4335
+            )
+            try:
+                await ctx.send(embed=err_embed)
+            except Exception:
+                pass
+
+    asyncio.create_task(run_adk_pipeline())
 
 @debate_prefix_group.command(name="pause")
 async def debate_pause_prefix(ctx):
