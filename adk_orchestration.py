@@ -30,6 +30,7 @@ from google.adk.agents.invocation_context import InvocationContext
 from gemini_client import query_gemini_cli, query_ollama_cloud, query_llm
 from agy_client import query_agy_cli
 from a2tools_runtime import tools_runtime, ORCHESTRATION_NOTEBOOK_ID
+from src.services.sprint_booster_service import SprintBoosterService
 
 logger = logging.getLogger("ADKOrchestration")
 
@@ -72,6 +73,10 @@ class DynamicWorkerAgent(BaseAgent):
         notebook_knowledge = ctx.session.state.get("notebook_knowledge", "")
         previous_outputs = ctx.session.state.get("shared_workspace", "")
 
+        booster_service = ctx.session.state.get("sprint_booster_service")
+        if not booster_service:
+            booster_service = SprintBoosterService()
+
         prompt_payload = (
             f"Korisnički zadatak:\n{user_task}\n\n"
             f"Znanje iz Google NotebookLM sveske:\n{notebook_knowledge}\n\n"
@@ -80,6 +85,9 @@ class DynamicWorkerAgent(BaseAgent):
             prompt_payload += f"Prethodni rad drugih agenata:\n{previous_outputs}\n\n"
 
         prompt_payload += f"Tvoj zadatak ({self.name}): Izvrši svoj deo u skladu sa tvojom instrukcijom."
+
+        # Token Pruning preko SprintBoosterService
+        prompt_payload = booster_service.optimize_prompt(prompt_payload)
 
         logger.info(f"[{self.name}] Izvršavam dodeljeni zadatak preko Cloud Ollama / Gemini CLI...")
         loop = asyncio.get_running_loop()
@@ -96,10 +104,13 @@ class DynamicWorkerAgent(BaseAgent):
         )
 
         ctx.session.state[self.output_key] = result
-        # Dopuni shared workspace
+        
+        # Store-by-Reference: skladišti pun izlaz i prosleđuje sažeti izvod u shared workspace
+        summary_relay = booster_service.process_agent_output(self.name, result)
+        
         existing = ctx.session.state.get("shared_workspace", "")
         ctx.session.state["shared_workspace"] = (
-            f"{existing}\n\n### [{self.name} Doprinos]:\n{result}"
+            f"{existing}\n\n{summary_relay}"
         ).strip()
 
         yield Event(author=self.name)
@@ -270,10 +281,12 @@ class MikiNosonjaOrchestrator:
             )
 
         # Korak 3: Kreiranje radnih agenata i izvršavanje
+        booster_service = SprintBoosterService(session_id=f"session_{abs(hash(user_task))}")
         state: Dict[str, Any] = {
             "user_task": user_task,
             "notebook_knowledge": notebook_knowledge,
             "shared_workspace": "",
+            "sprint_booster_service": booster_service,
         }
 
         class SessionWrapper:
