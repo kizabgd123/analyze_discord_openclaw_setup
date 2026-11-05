@@ -31,7 +31,7 @@ class DiscordConfig(BaseModel):
         description="Prefix for legacy text commands"
     )
     admin_user_id: Optional[str] = Field(
-        default_factory=lambda: os.getenv("ADMIN_DISCORD_USER_ID", "1500206682192744569"),
+        default_factory=lambda: os.getenv("ADMIN_DISCORD_USER_ID", None),
         description="Discord user ID authorized to approve Tier 2/3 actions"
     )
     auto_sync_tree: bool = Field(

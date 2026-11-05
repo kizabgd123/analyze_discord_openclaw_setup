@@ -500,44 +500,6 @@ class NotebookActionRow(discord.ui.View):
         await interaction.response.send_modal(modal)
 
 
-class ExecApprovalView(discord.ui.View):
-    def __init__(self, command: str, user_id: int):
-        super().__init__(timeout=60)
-        self.command = command
-        self.user_id = user_id
-
-    @discord.ui.button(label="Approve", style=discord.ButtonStyle.green, emoji="✅")
-    async def approve(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("Samo autor komande može da je odobri.", ephemeral=True)
-            return
-            
-        await interaction.response.edit_message(content=f"✅ **Odobreno.** Izvršavam: `{self.command}`...", view=None)
-        
-        try:
-            proc = await asyncio.create_subprocess_shell(
-                self.command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd="/home/kizamladjanijebac/Desktop/openclaw"
-            )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
-            output = (stdout or stderr).decode("utf-8")
-            
-            result_msg = f"🖥️ **Rezultat komande:**\n```\n{output[:1900] or '(Prazan izlaz)'}\n```"
-            await interaction.followup.send(result_msg)
-                
-        except Exception as e:
-            await interaction.followup.send(f"❌ Greška pri izvršavanju: {e}")
-
-    @discord.ui.button(label="Deny", style=discord.ButtonStyle.red, emoji="❌")
-    async def deny(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("Samo ti možeš da otkažeš komandu.", ephemeral=True)
-            return
-        await interaction.response.edit_message(content="❌ Komanda odbijena.", view=None)
-
-
 class DebateControlView(discord.ui.View):
     """Interactive Action Row for controlling multi-agent debate in Discord."""
     def __init__(self, channel_id: int):
@@ -1120,23 +1082,12 @@ async def help_slash(interaction: discord.Interaction):
         name="⚙️ Dijagnostika i Sistem",
         value=(
             "• `/status` — Provera Google autentifikacije i latencije\n"
-            "• `/execute <task>` — Autonomni kognitivni task kroz BrainCore + JudgeGuard\n"
-            "• `/sh <komanda>` — Bezbedno izvršavanje shell komande uz odobrenje"
+            "• `/execute <task>` — Autonomni kognitivni task kroz BrainCore + JudgeGuard"
         ),
         inline=False
     )
     embed.set_footer(text="Google NotebookLM Integration • 100% Real API")
     await interaction.response.send_message(embed=embed)
-
-
-@bot.tree.command(name="sh", description="Izvrši sistemsku shell komandu uz interaktivno odobrenje")
-@app_commands.describe(komanda="Bash komanda za pokretanje na serveru")
-async def sh_slash(interaction: discord.Interaction, komanda: str):
-    view = ExecApprovalView(komanda, interaction.user.id)
-    await interaction.response.send_message(
-        f"🚨 **OpenClaw Čuvar** zahteva odobrenje za izvršavanje sistemske komande:\n`{komanda}`",
-        view=view
-    )
 
 
 @bot.tree.command(
@@ -1752,11 +1703,6 @@ async def ping_prefix(ctx):
     latency = round(bot.latency * 1000)
     await ctx.send(f"🏓 **Pong!** Latencija bota: `{latency}ms` | Google NotebookLM CLI je aktivan.")
 
-@bot.command(name="sh", aliases=["exec"])
-async def sh_prefix(ctx, *, command: str):
-    view = ExecApprovalView(command, ctx.author.id)
-    await ctx.send(f"🚨 **OpenClaw Čuvar** zahteva odobrenje za izvršavanje sistemske komande:\n`{command}`", view=view)
-
 @bot.command(name="help")
 async def help_prefix(ctx):
     embed = discord.Embed(
@@ -1798,8 +1744,7 @@ async def help_prefix(ctx):
         name="⚙️ Sistemske Komande",
         value=(
             "• `/status` — Provera veze, Google autentifikacije i latencije\n"
-            "• `/ping` — Latencija bota\n"
-            "• `/sh <komanda>` — Izvršavanje Linux shell komande (sa odobrenjem)"
+            "• `/ping` — Latencija bota"
         ),
         inline=False
     )

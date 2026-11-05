@@ -6,7 +6,7 @@ system_schemas.py — Validation Schemas for System & Shell Operations.
 import re
 from pydantic import BaseModel, Field, field_validator
 
-# Immutable blacklist patterns per MASTER_ORCHESTRATION.md Law 7
+# Immutable blacklist patterns per MASTER_ORCHESTRATION.md Law 7 (synced with judge_guard.py)
 _BLOCKED_COMMAND_PATTERNS = [
     re.compile(r"rm\s+-rf\s+/", re.IGNORECASE),
     re.compile(r"mkfs\.", re.IGNORECASE),
@@ -15,7 +15,10 @@ _BLOCKED_COMMAND_PATTERNS = [
     re.compile(r"chmod\s+777\s+/", re.IGNORECASE),
     re.compile(r"curl.*\|\s*sh", re.IGNORECASE),
     re.compile(r"wget.*\|\s*sh", re.IGNORECASE),
+    re.compile(r"eval\s*\(", re.IGNORECASE),
+    re.compile(r"base64\s+-d.*\|\s*sh", re.IGNORECASE),
     re.compile(r":\(\)\s*\{\s*:\|\:&\s*\};:", re.IGNORECASE),
+    re.compile(r":\(\)\s*\{.*\}\s*;:", re.IGNORECASE),
     re.compile(r"sudo\s+su\b", re.IGNORECASE),
 ]
 

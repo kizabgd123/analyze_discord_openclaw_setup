@@ -50,9 +50,28 @@ class SystemController(BaseController):
         except Exception as exc:
             await self.handle_error(exc, target, action_name="get_status")
 
-    async def execute_command(self, target: Any, command: str) -> None:
-        """Evaluates shell command through JudgeGuard safety gate."""
+    async def execute_command(self, target: Any, command: str, caller_id: Optional[str] = None) -> None:
+        """Evaluates shell command through admin authorization and JudgeGuard safety gate."""
         try:
+            # 1. Admin ID Authorization Check (Fail-Closed Default Deny)
+            configured_admin = config.discord.admin_user_id
+            if not configured_admin:
+                raise PermissionError("Access denied: ADMIN_DISCORD_USER_ID is unset in unified_config (fail closed).")
+
+            # Resolve caller ID from explicit parameter or interaction/context target
+            effective_caller = caller_id
+            if effective_caller is None:
+                if hasattr(target, "user") and hasattr(target.user, "id"):
+                    effective_caller = str(target.user.id)
+                elif hasattr(target, "author") and hasattr(target.author, "id"):
+                    effective_caller = str(target.author.id)
+                elif isinstance(target, dict) and "caller_id" in target:
+                    effective_caller = str(target["caller_id"])
+
+            if not effective_caller or str(effective_caller) != str(configured_admin):
+                raise PermissionError(f"Access denied: Caller '{effective_caller}' is not authorized to execute system commands.")
+
+            # 2. Schema / Blacklist validation
             validated = self.validate_payload(ShellCommandSchema, {"command": command})
             passed, reason = self.judge_service.verify_action(validated.command)
 
