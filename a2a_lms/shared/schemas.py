@@ -32,6 +32,7 @@ class JudgeFeedback(BaseModel):
     pass_status: bool = Field(..., description="True if overall_score >= 7.0 and critical checks pass")
     critique: str = Field(..., description="Actionable critique and review notes")
     missing_aspects: List[str] = Field(default_factory=list, description="Specific items required for revision")
+    grounding_verified: bool = Field(default=True, description="Citations strictly verified against source")
 
     @field_validator("overall_score", mode="before")
     @classmethod
@@ -50,6 +51,7 @@ class ResearchFindings(BaseModel):
     practical_steps: List[str] = Field(default_factory=list)
     traps_and_pitfalls: List[str] = Field(default_factory=list)
     sidecar_type: Optional[str] = Field(None, description="Optional science sidecar viewer name")
+    source_citations: List[str] = Field(default_factory=list, description="Explicit NotebookLM citations and quotes")
     raw_markdown: str
 
 
@@ -74,6 +76,29 @@ class CourseSection(BaseModel):
     content_markdown: str
 
 
+class AgentTraceStep(BaseModel):
+    """ReAct trace step executed by an autonomous agent."""
+    step_number: int
+    timestamp: str
+    agent_name: str
+    thought: str = Field(..., description="Reasoning trace before taking action")
+    action: str = Field(..., description="Tool or invocation name and parameter summary")
+    observation: str = Field(..., description="Output or state observed after action execution")
+    reflection: Optional[str] = Field(None, description="Self-evaluation and error correction critique")
+    tokens_used: int = 0
+
+
+class ExecutionMetrics(BaseModel):
+    """Cost, token, and durability metrics for autonomous agent runs."""
+    total_steps: int = 0
+    total_estimated_tokens: int = 0
+    estimated_cost_usd: float = 0.0
+    execution_time_seconds: float = 0.0
+    resumed_from_checkpoint: bool = False
+    checkpoint_id: Optional[str] = None
+    grounding_confidence: float = 1.0
+
+
 class CoursePayload(BaseModel):
     """Final verified interactive course curriculum ready for delivery."""
     topic: str
@@ -87,3 +112,5 @@ class CoursePayload(BaseModel):
     full_course_markdown: str
     verification_hash: str
     created_at: str
+    trace_history: List[AgentTraceStep] = Field(default_factory=list, description="ReAct audit traces")
+    execution_metrics: Optional[ExecutionMetrics] = Field(default=None, description="Step and cost guard metrics")

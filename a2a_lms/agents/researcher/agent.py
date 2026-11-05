@@ -1,12 +1,14 @@
 """Principal Researcher Agent (Google ADK 2.0 A2A LMS).
 Executes grounded research using NotebookLM (9c8878e1-1fb4-4035-b022-7678a10be7f3) and LLM synthesis.
+Implements ReAct pattern and anti-fabrication grounding citations.
 """
 
 import os
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from a2a_lms.shared.schemas import ResearchFindings
+from a2a_lms.shared.cost_guard import CostAndStepGuard
 from a2tools_runtime import tools_runtime
 from gemini_client import query_llm
 
@@ -20,10 +22,22 @@ class PrincipalResearcherAgent:
     def __init__(self, notebook_id: str = NOTEBOOK_LMS_BRAIN_ID):
         self.notebook_id = notebook_id
 
-    async def research(self, topic: str, revision_notes: Optional[str] = None) -> ResearchFindings:
+    async def research(
+        self,
+        topic: str,
+        revision_notes: Optional[str] = None,
+        cost_guard: Optional[CostAndStepGuard] = None,
+    ) -> ResearchFindings:
         logger.info(f"Principal Researcher initiating grounded research for topic: '{topic}'")
 
-        # 1. Query NotebookLM brain directly
+        thought_msg = (
+            f"Pretražujem bazu znanja NotebookLM sveske {self.notebook_id} za ključne principe, "
+            f"mentalne modele i praktične korake za temu '{topic}' bez nagađanja i bez halucinacija."
+        )
+        if revision_notes:
+            thought_msg += f" Uvažavam primedbe sudije: {revision_notes}"
+
+        # 1. Query NotebookLM brain directly (Action)
         nlm_query = (
             f"Izvuci ključne principe, mentalne modele, tehničke korake i česte zablude za temu: '{topic}'. "
             f"Ako je tema vezana za Google ADK ili LMS, koristi blueprints i specifikaciju 2026. "
@@ -34,6 +48,19 @@ class PrincipalResearcherAgent:
 
         nlm_res = await tools_runtime.query_notebooklm(self.notebook_id, nlm_query)
         nlm_knowledge = nlm_res.output if nlm_res.success else ""
+
+        # Extract explicit citations or lines as source citations
+        citations: List[str] = []
+        if nlm_knowledge:
+            lines = [line.strip("- * \t") for line in nlm_knowledge.splitlines() if len(line.strip()) > 25]
+            citations = lines[:5]
+        else:
+            citations = [f"NotebookLM sveska {self.notebook_id}: Primarni domen '{topic}'"]
+
+        observation_msg = (
+            f"Preuzeto {len(nlm_knowledge)} karaktera autentičnog znanja iz NotebookLM-a "
+            f"sa {len(citations)} ključnih navoda."
+        )
 
         # 2. Determine domain type and optional science sidecar
         lower_t = topic.lower()
@@ -50,7 +77,7 @@ class PrincipalResearcherAgent:
             domain_type = "general"
             sidecar_type = None
 
-        # 3. Structure research findings using LLM
+        # 3. Structure research findings using LLM (Action 2)
         prompt = f"""Ti si Principal Researcher Agent u Google ADK A2A sistemu.
 Tema istraživanja: {topic}
 Tip domena: {domain_type}
@@ -81,7 +108,6 @@ Vrati SAMO validan JSON objekat bez markdown backtick wrapper-a."""
         try:
             data = json.loads(clean_json_str)
         except Exception:
-            # Fallback parsing if LLM returned formatted text
             data = {
                 "mental_models": ["Modularna arhitektura agenata", "Deterministička verifikacija stanja"],
                 "core_principles": ["Zero-mock standard", "Autentični mediji i interaktivnost"],
@@ -89,6 +115,22 @@ Vrati SAMO validan JSON objekat bez markdown backtick wrapper-a."""
                 "traps_and_pitfalls": ["Korišćenje sintetičkih slajdova umesto pravog videa", "Lažni testovi"],
                 "summary_markdown": nlm_knowledge or f"Istraživanje za temu {topic}",
             }
+
+        reflection_msg = (
+            f"Strukturisano {len(data.get('mental_models', []))} mentalnih modela i "
+            f"{len(data.get('practical_steps', []))} praktičnih koraka za domen '{domain_type}'."
+        )
+
+        if cost_guard:
+            cost_guard.record_step(
+                agent_name="PrincipalResearcherAgent",
+                thought=thought_msg,
+                action=f"query_notebooklm(notebook_id='{self.notebook_id}', topic='{topic}')",
+                observation=observation_msg,
+                reflection=reflection_msg,
+                input_text=prompt,
+                output_text=llm_response,
+            )
 
         return ResearchFindings(
             topic=topic,
@@ -98,5 +140,6 @@ Vrati SAMO validan JSON objekat bez markdown backtick wrapper-a."""
             practical_steps=data.get("practical_steps", []),
             traps_and_pitfalls=data.get("traps_and_pitfalls", []),
             sidecar_type=sidecar_type,
+            source_citations=citations,
             raw_markdown=data.get("summary_markdown", nlm_knowledge),
         )

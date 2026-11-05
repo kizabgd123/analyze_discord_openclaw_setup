@@ -80,6 +80,37 @@
             </div>
         </section>
 
+        <!-- Autonomous Agent ReAct Traces & Grounding Audit -->
+        <section class="trace-audit-section" style="margin: 40px 0;">
+            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h2 style="font-size: 1.3rem; margin: 0; display: flex; align-items: center; gap: 8px;">
+                            <span>🛡️ Autonomni Agenti: Revizorski Dnevnik i Metrike</span>
+                        </h2>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 4px;">
+                            ReAct Traces • Durable Checkpoints • Cost Guard • Zero-Hallucination Grounding
+                        </p>
+                    </div>
+                    <button id="toggle-trace-btn" class="chapter-chip" onclick="toggleTraceDrawer()">
+                        Prikaži Revizorski Dnevnik (▼)
+                    </button>
+                </div>
+                
+                <!-- Metrics Summary Strip -->
+                <div id="metrics-summary-strip" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px;">
+                    <!-- Dynamically populated -->
+                </div>
+
+                <!-- Trace Log Drawer -->
+                <div id="trace-drawer" style="display: none; border-top: 1px solid var(--border-color); padding-top: 16px;">
+                    <div id="trace-steps-list">
+                        <!-- Populated by course.js -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Certificate Eligibility Banner -->
         <div id="cert-banner" style="display: none; background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(56, 189, 248, 0.15)); border: 1px solid var(--accent-green); border-radius: var(--radius-md); padding: 24px; text-align: center; margin-top: 32px;">
             <h3 style="color: #86efac; margin-bottom: 8px;">🎓 Čestitamo! Uspešno ste završili modul!</h3>

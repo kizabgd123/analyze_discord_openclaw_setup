@@ -273,6 +273,9 @@ function renderCourse(course) {
         `).join("");
         updateQuizScoreDisplay();
     }
+
+    // Render Agent Traces and Execution Metrics (autonomous-agents skill)
+    renderAgentTracesAndMetrics(course);
 }
 
 /**
@@ -309,3 +312,91 @@ function formatMarkdownToHTML(md) {
 
     return html;
 }
+
+
+/**
+ * 4. Autonomous Agent Traces & Metrics Rendering (autonomous-agents skill)
+ */
+function renderAgentTracesAndMetrics(course) {
+    const metricsStrip = document.querySelector("#metrics-summary-strip");
+    const traceList = document.querySelector("#trace-steps-list");
+
+    if (metricsStrip && course.execution_metrics) {
+        const m = course.execution_metrics;
+        metricsStrip.innerHTML = `
+            <div class="trace-metric-tile">
+                <div class="trace-metric-value">${m.total_steps || 0}</div>
+                <div class="trace-metric-label">Koraka (Steps)</div>
+            </div>
+            <div class="trace-metric-tile">
+                <div class="trace-metric-value">${m.total_estimated_tokens ? m.total_estimated_tokens.toLocaleString() : 0}</div>
+                <div class="trace-metric-label">Tokena (Procena)</div>
+            </div>
+            <div class="trace-metric-tile">
+                <div class="trace-metric-value">$${m.estimated_cost_usd !== undefined ? m.estimated_cost_usd.toFixed(4) : "0.0000"}</div>
+                <div class="trace-metric-label">Trošak (USD)</div>
+            </div>
+            <div class="trace-metric-tile">
+                <div class="trace-metric-value">${m.execution_time_seconds || 0}s</div>
+                <div class="trace-metric-label">Vreme Izvršenja</div>
+            </div>
+            <div class="trace-metric-tile">
+                <div class="trace-metric-value" style="font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    ${m.checkpoint_id || "lms-active"}
+                </div>
+                <div class="trace-metric-label">Thread / Checkpoint</div>
+            </div>
+            <div class="trace-metric-tile">
+                <div class="trace-metric-value" style="color: var(--accent-green);">${Math.round((m.grounding_confidence || 1.0) * 100)}%</div>
+                <div class="trace-metric-label">Utemeljenost (Grounding)</div>
+            </div>
+        `;
+    }
+
+    if (traceList) {
+        const traces = course.trace_history || [];
+        if (traces.length === 0) {
+            traceList.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem;">Nema snimljenih tragova za ovu sesiju.</p>`;
+        } else {
+            traceList.innerHTML = traces.map(t => `
+                <div class="trace-step-card">
+                    <div class="trace-step-header">
+                        <span class="trace-agent-pill">🤖 ${t.agent_name} • Korak ${t.step_number}</span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">${t.tokens_used} tokena</span>
+                    </div>
+                    <div class="trace-thought-box">
+                        <strong>💭 Misao (Thought):</strong> ${t.thought}
+                    </div>
+                    <div class="trace-action-box">
+                        <strong>⚡ Akcija (Action):</strong> ${t.action}
+                    </div>
+                    <div class="trace-obs-box">
+                        <strong>👁️ Opservacija (Observation):</strong> ${t.observation}
+                    </div>
+                    ${t.reflection ? `
+                        <div style="margin-top: 6px; font-size: 0.85rem; color: #e9d5ff; padding: 4px 8px; border-left: 3px solid var(--accent-purple);">
+                            <strong>⚖️ Refleksija (Reflection):</strong> ${t.reflection}
+                        </div>
+                    ` : ""}
+                </div>
+            `).join("");
+        }
+    }
+}
+
+function toggleTraceDrawer() {
+    const drawer = document.querySelector("#trace-drawer");
+    const btn = document.querySelector("#toggle-trace-btn");
+    if (!drawer) return;
+
+    if (drawer.style.display === "none" || !drawer.style.display) {
+        drawer.style.display = "block";
+        if (btn) btn.textContent = "Sakrij Revizorski Dnevnik (▲)";
+    } else {
+        drawer.style.display = "none";
+        if (btn) btn.textContent = "Prikaži Revizorski Dnevnik (▼)";
+    }
+}
+
+// Hook into renderCourse
+const originalRenderCourse = typeof renderCourse === "function" ? renderCourse : null;

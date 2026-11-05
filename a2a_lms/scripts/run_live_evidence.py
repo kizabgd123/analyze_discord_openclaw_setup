@@ -1,5 +1,6 @@
-"""Live Evidence Runner (Zero-Mock Verification).
-Executes each agent step in the A2A pipeline live and prints the unedited raw output.
+"""Live Evidence Runner (Zero-Mock Verification with Autonomous Agents Hardening).
+Executes each agent step in the A2A pipeline live and prints the unedited raw output,
+including ReAct reasoning traces, durable checkpoints, and cost guard metrics.
 """
 
 import sys
@@ -14,6 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from a2tools_runtime import tools_runtime
 from a2a_lms.shared.schemas import ResearchFindings, JudgeFeedback, YouTubeMetadata
 from a2a_lms.shared.youtube_lookup import find_embeddable_youtube_video
+from a2a_lms.shared.cost_guard import CostAndStepGuard
+from a2a_lms.shared.checkpoint import LMSCheckpointManager
 from a2a_lms.agents.researcher.agent import PrincipalResearcherAgent
 from a2a_lms.agents.judge.agent import SeniorJudgeAgent
 from a2a_lms.agents.content_builder.agent import LeadContentBuilderAgent
@@ -41,51 +44,69 @@ async def main():
     print("-" * 60)
 
     print("\n" + "=" * 80)
-    print("DOKAZ 2: PRINCIPAL RESEARCHER AGENT — ISTRAŽIVANJE I IZDVAJANJE TEMELJA")
+    print("DOKAZ 2: AUTONOMNI ORKESTRATOR SA CHECKPOINTIMA, TROŠKOVIMA I ReAct TRAGOVIMA")
     print("=" * 80)
-    researcher = PrincipalResearcherAgent(notebook_id=notebook_id)
-    findings = await researcher.research(topic)
-    print(f"Domen: {findings.domain_type}")
-    print(f"Mentalni modeli: {json.dumps(findings.mental_models, ensure_ascii=False, indent=2)}")
-    print(f"Temeljni principi: {json.dumps(findings.core_principles, ensure_ascii=False, indent=2)}")
-    print(f"Praktični koraci: {json.dumps(findings.practical_steps, ensure_ascii=False, indent=2)}")
-    print(f"Zamke i zablude: {json.dumps(findings.traps_and_pitfalls, ensure_ascii=False, indent=2)}")
+    orchestrator = LMSOrchestrator(notebook_id=notebook_id)
+    thread_id = orchestrator.checkpoint_manager.create_thread_id("live-run")
+    print(f"Dodeljen Durable Thread ID: {thread_id}")
+
+    course = await orchestrator.run(
+        topic=topic,
+        thread_id=thread_id,
+        on_progress=lambda msg: print(f"  [STREAM PROGRESS] {msg}"),
+    )
 
     print("\n" + "=" * 80)
-    print("DOKAZ 3: SENIOR JUDGE AGENT — EVALUACIJA I RUBRIKA OCENJIVANJA")
+    print("DOKAZ 3: SENIOR JUDGE EVALUACIJA I UZEMLJENOST (GROUNDING)")
     print("=" * 80)
-    judge = SeniorJudgeAgent()
-    judge_feedback = judge.evaluate(findings)
-    print(f"Tačnost (Accuracy): {judge_feedback.accuracy_score}/10")
-    print(f"Jezički kontinuitet (Srpski): {judge_feedback.language_parity_score}/10")
-    print(f"Kompletnost i domen: {judge_feedback.completeness_score}/10")
-    print(f"Ukupna ocena (Overall): {judge_feedback.overall_score}/10")
-    print(f"Status prolaza (Pass): {judge_feedback.pass_status}")
-    print(f"Kritika i obrazloženje:\n{judge_feedback.critique}")
+    jf = course.judge_feedback
+    print(f"Tačnost (Accuracy): {jf.accuracy_score}/10")
+    print(f"Jezički kontinuitet (Srpski): {jf.language_parity_score}/10")
+    print(f"Kompletnost i domen: {jf.completeness_score}/10")
+    print(f"Ukupna ocena (Overall): {jf.overall_score}/10")
+    print(f"Status prolaza (Pass): {jf.pass_status}")
+    print(f"Uzemljenost potvrđena (Grounding Verified): {jf.grounding_verified}")
+    print(f"Kritika i obrazloženje:\n{jf.critique}")
 
     print("\n" + "=" * 80)
-    print("DOKAZ 4: AUTENTIČNI YOUTUBE DISCOVERY & oEmbed VALIDACIJA")
+    print("DOKAZ 4: ReAct TRAGOVI RADA (THOUGHT -> ACTION -> OBSERVATION -> REFLECTION)")
     print("=" * 80)
-    yt_meta = find_embeddable_youtube_video(topic, domain_type=findings.domain_type)
-    print(f"Video ID: {yt_meta.video_id}")
-    print(f"Naslov: {yt_meta.title}")
-    print(f"Autor: {yt_meta.author}")
-    print(f"Trajanje: {yt_meta.duration_formatted} ({yt_meta.duration_seconds}s)")
-    print(f"Nocookie Embed URL: {yt_meta.embed_url}")
-    print(f"oEmbed Verifikovano: {yt_meta.verified}")
-    print("Poglavlja sa vremenskim oznakama:")
-    for ch in yt_meta.chapters:
-        print(f"  [{ch.timestamp}] ({ch.seconds}s) -> {ch.title}")
+    for step in course.trace_history:
+        print(f"\n[KORAK {step.step_number}] Agent: {step.agent_name} ({step.tokens_used} tokena)")
+        print(f"  💭 Thought:     {step.thought}")
+        print(f"  ⚡ Action:      {step.action}")
+        print(f"  👁️ Observation: {step.observation}")
+        if step.reflection:
+            print(f"  ⚖️ Reflection:  {step.reflection}")
 
     print("\n" + "=" * 80)
-    print("DOKAZ 5: LEAD CONTENT BUILDER AGENT — GENERISANJE 7 CELINA KURSA")
+    print("DOKAZ 5: METRIKE TROŠKOVA, BROJA KORAKA I CHECKPOINT STANJA")
     print("=" * 80)
-    builder = LeadContentBuilderAgent()
-    course = builder.build_course(findings, judge_feedback, yt_meta)
-    print(f"Verifikacioni Hash: {course.verification_hash}")
-    print(f"Broj sekcija: {len(course.sections)}")
+    m = course.execution_metrics
+    if m:
+        print(f"Ukupno koraka (Total Steps):           {m.total_steps}")
+        print(f"Ukupno tokena (Estimated Tokens):      {m.total_estimated_tokens}")
+        print(f"Procenjeni trošak (Cost USD):          ${m.estimated_cost_usd:.5f}")
+        print(f"Trajanje izvršenja (Seconds):          {m.execution_time_seconds}s")
+        print(f"Durable Checkpoint ID:                 {m.checkpoint_id}")
+        print(f"Uzemljenost (Grounding Confidence):    {round(m.grounding_confidence * 100)}%")
+
+    # Verify checkpoint on disk
+    saved_ckpt = orchestrator.checkpoint_manager.load_checkpoint(thread_id)
+    print(f"Checkpoint na disku postoji:           {saved_ckpt is not None}")
+    if saved_ckpt:
+        print(f"Faza sačuvana u checkpoint-u:          {saved_ckpt.get('current_stage')}")
+
+    print("\n" + "=" * 80)
+    print("DOKAZ 6: YOUTUBE oEmbed I 7 INTERAKTIVNIH MODULA")
+    print("=" * 80)
+    print(f"Video: {course.youtube_metadata.title} ({course.youtube_metadata.video_id})")
+    print(f"oEmbed Verified: {course.youtube_metadata.verified}")
+    print(f"Broj poglavlja videa: {len(course.youtube_metadata.chapters)}")
+    print(f"Broj modula kursa: {len(course.sections)}")
     print(f"Broj 3D fleš-kartica: {len(course.flashcards)}")
     print(f"Broj kviz pitanja: {len(course.quiz)}")
+    print(f"Verifikacioni Hash: {course.verification_hash}")
 
     # Save to disk
     out_dir = Path(__file__).resolve().parent.parent / "generated_courses"
@@ -94,25 +115,6 @@ async def main():
     with open(out_file, "w", encoding="utf-8") as f:
         f.write(course.full_course_markdown)
     print(f"\nCeo kurs sačuvan na: {out_file} (Veličina: {len(course.full_course_markdown)} karaktera)")
-
-    print("\n" + "=" * 80)
-    print("DOKAZ 6: ISPIS GENERISANIH MODULA (KOMPLETAN SADRŽAJ)")
-    print("=" * 80)
-    for s in course.sections:
-        print(f"\n--- [SEKCIJA {s.index}: {s.title}] ---")
-        print(s.content_markdown[:600] + ("\n... [nastavak u fajlu]" if len(s.content_markdown) > 600 else ""))
-
-    print("\n--- [3D FLEŠ-KARTICE] ---")
-    for i, fc in enumerate(course.flashcards, 1):
-        print(f"Kartica {i}: P: {fc.front} | O: {fc.back}")
-
-    print("\n--- [INTERAKTIVNI KVIZ ZNANJA] ---")
-    for i, q in enumerate(course.quiz, 1):
-        print(f"\nPitanje {i}: {q.question}")
-        for j, opt in enumerate(q.options):
-            marker = "[x]" if j == q.correct_index else "[ ]"
-            print(f"  {marker} {chr(65+j)}) {opt}")
-        print(f"  Objašnjenje: {q.explanation}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,4 @@
+# Ignore runtime agent session checkpoints
+*.json
+*.tmp
+!.gitignore

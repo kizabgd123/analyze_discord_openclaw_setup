@@ -25,6 +25,10 @@ class TestA2AAgents(unittest.TestCase):
             ],
             traps_and_pitfalls=["Korišćenje sintetičkih slajdova", "Lažiranje testova"],
             sidecar_type=None,
+            source_citations=[
+                "NotebookLM sveska 9c8878e1-1fb4-4035-b022-7678a10be7f3: Blueprint specifikacija za Google Agent Development Kit i multi-agent A2A protokole.",
+                "ADK 2.0 State Machine: Deterministička verifikacija stanja i konsenzus kroz LoopAgent evaluaciju.",
+            ],
             raw_markdown="Detaljan pregled arhitekture Google ADK agenata.",
         )
 
