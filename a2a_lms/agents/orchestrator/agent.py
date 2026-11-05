@@ -21,7 +21,7 @@ logger = logging.getLogger("a2a_lms.orchestrator")
 class LMSOrchestrator:
     """Master orchestrator executing the durable A2A consensus loop and course pipeline."""
 
-    def __init__(self, notebook_id: str = "9c8878e1-1fb4-4035-b022-7678a10be7f3"):
+    def __init__(self, notebook_id: Optional[str] = None):
         self.notebook_id = notebook_id
         self.researcher = PrincipalResearcherAgent(notebook_id=notebook_id)
         self.judge = SeniorJudgeAgent()
@@ -107,7 +107,7 @@ class LMSOrchestrator:
 
             # 2. Researcher & Judge Consensus Loop (Evaluator-Optimizer reflection pattern)
             if not judge_feedback or not judge_feedback.pass_status:
-                emit("🔍 Principal Researcher analizira temu i konsultuje NotebookLM znanje...")
+                emit("🔍 Principal Researcher vrši rigoroznu domensku analizu i priprema kurikulum...")
                 revision_notes: Optional[str] = None
                 max_consensus_iterations = 3
 

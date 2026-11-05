@@ -1,6 +1,7 @@
 /**
  * Google ADK A2A LMS Client Logic (2026).
- * Handles video seek synchronization, 3D flashcards, quiz evaluation, and certificate generation.
+ * Handles video seek synchronization, 3D flashcards, quiz evaluation,
+ * strict certificate score gating, and ReAct traces rendering.
  */
 
 // Global State
@@ -20,7 +21,6 @@ document.addEventListener("DOMContentLoaded", () => {
  * 1. Masterclass Video Player & HTML5 postMessage Seeking
  */
 function initVideoPlayerControls() {
-    // Delegate click on chapter pills and chips
     document.addEventListener("click", (e) => {
         const target = e.target.closest(".chapter-chip, .inline-chapter-pill");
         if (!target) return;
@@ -42,7 +42,6 @@ function seekVideoTo(seconds) {
     const iframe = document.querySelector("#masterclass-iframe");
     if (!iframe || !iframe.contentWindow) return;
 
-    // Send YouTube postMessage API commands
     iframe.contentWindow.postMessage(JSON.stringify({
         event: "command",
         func: "seekTo",
@@ -70,7 +69,7 @@ function initFlashcards() {
 }
 
 /**
- * 3. Robust Universal Quiz Engine
+ * 3. Robust Universal Quiz Engine & Strict Score Gating
  */
 function initQuizEngine() {
     document.addEventListener("click", (e) => {
@@ -114,7 +113,7 @@ function initQuizEngine() {
         // Check completion
         const totalCards = document.querySelectorAll(".quiz-question-card").length;
         if (questionsAnswered >= totalCards && totalCards > 0) {
-            triggerCertificateEligible();
+            triggerCertificateEvaluation(quizScore, totalCards);
         }
     });
 }
@@ -125,6 +124,61 @@ function updateQuizScoreDisplay() {
     if (badge) {
         badge.innerText = `Rezultat: ${quizScore} / ${totalCards}`;
     }
+}
+
+function triggerCertificateEvaluation(score, total) {
+    const banner = document.querySelector("#cert-banner");
+    if (!banner) return;
+
+    const percentage = total > 0 ? (score / total) : 0;
+    banner.style.display = "block";
+
+    if (percentage >= 0.7) {
+        // PASS (>= 70%)
+        banner.style.background = "linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(56, 189, 248, 0.15))";
+        banner.style.borderColor = "var(--accent-green)";
+        banner.innerHTML = `
+            <h3 style="color: #86efac; margin-bottom: 8px;">🎓 Čestitamo! Položili ste kviz znanja (${score}/${total} — ${Math.round(percentage * 100)}%)!</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                Uspešno ste zadovoljili pedagoške kriterijume Senior Judge agenta i savladali sve module.
+            </p>
+            <button onclick="openCertificateModal()" class="btn-generate" style="margin: 0 auto;">
+                <span>📜 Preuzmi Zvanični Sertifikat</span>
+            </button>
+        `;
+    } else {
+        // FAIL (< 70%)
+        banner.style.background = "rgba(239, 68, 68, 0.12)";
+        banner.style.borderColor = "var(--accent-red)";
+        banner.innerHTML = `
+            <h3 style="color: #fca5a5; margin-bottom: 8px;">❌ Kviz nije položen (Rezultat: ${score}/${total} — ${Math.round(percentage * 100)}%)</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 14px;">
+                Za sticanje zvaničnog sertifikata potrebno je najmanje 70% tačnih odgovora. Pročitajte objašnjenja i pokušajte ponovo.
+            </p>
+            <button onclick="resetQuiz()" class="chapter-chip" style="margin: 0 auto; display: inline-block; cursor: pointer;">
+                🔄 Pokušaj ponovo
+            </button>
+        `;
+    }
+}
+
+function resetQuiz() {
+    quizScore = 0;
+    questionsAnswered = 0;
+    document.querySelectorAll(".quiz-question-card").forEach(card => {
+        card.removeAttribute("data-answered");
+        const fb = card.querySelector(".quiz-feedback");
+        if (fb) {
+            fb.style.display = "none";
+            fb.innerHTML = "";
+        }
+    });
+    document.querySelectorAll(".quiz-option-btn").forEach(btn => {
+        btn.classList.remove("correct", "wrong");
+    });
+    updateQuizScoreDisplay();
+    const banner = document.querySelector("#cert-banner");
+    if (banner) banner.style.display = "none";
 }
 
 /**
@@ -146,11 +200,6 @@ function initCertificateModal() {
             window.print();
         });
     }
-}
-
-function triggerCertificateEligible() {
-    const banner = document.querySelector("#cert-banner");
-    if (banner) banner.style.display = "block";
 }
 
 function openCertificateModal() {
@@ -178,73 +227,80 @@ function openCertificateModal() {
 }
 
 /**
- * 5. Data Hydration from Storage or Server
+ * 5. Data Loading and UI Binding
  */
 function loadCourseFromStorage() {
-    const raw = sessionStorage.getItem("active_lms_course");
-    if (raw) {
-        try {
-            currentCourseData = JSON.parse(raw);
-            renderCourse(currentCourseData);
-        } catch (e) {
-            console.error("Failed to parse course data from session storage:", e);
-        }
+    const raw = localStorage.getItem("lms_active_course");
+    if (!raw) {
+        document.querySelector("#course-header-topic").innerText = "Nema pronađenog aktivnog kursa. Molimo generišite kurs sa početne stranice.";
+        return;
+    }
+
+    try {
+        currentCourseData = JSON.parse(raw);
+        renderCourse(currentCourseData);
+    } catch (e) {
+        console.error("Greška pri parsiranju kursa:", e);
+        document.querySelector("#course-header-topic").innerText = "Greška pri učitavanju podataka kursa.";
     }
 }
 
 function renderCourse(course) {
-    currentCourseData = course;
-    console.log("[LMS Client] Rendering course:", course.topic);
+    document.title = `${course.topic} — Zvanični Masterclass`;
+    document.querySelector("#course-header-topic").innerText = course.topic;
 
-    // Title & Topic
-    const topicEl = document.querySelector("#course-header-topic");
-    if (topicEl) topicEl.innerText = course.topic;
-
-    // Video Player
-    const iframe = document.querySelector("#masterclass-iframe");
-    if (iframe && course.youtube_metadata) {
-        // Enforce enablejsapi=1 for postMessage control
-        const embedUrl = course.youtube_metadata.embed_url;
-        const separator = embedUrl.includes("?") ? "&" : "?";
-        iframe.src = `${embedUrl}${separator}enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`;
+    const hashBadge = document.querySelector("#verification-badge");
+    if (hashBadge && course.verification_hash) {
+        hashBadge.innerText = course.verification_hash;
+        hashBadge.title = "Kriptografski verifikovan sadržaj";
     }
 
-    // Chapters Bar
-    const chaptersContainer = document.querySelector("#chapter-bar-container");
-    if (chaptersContainer && course.youtube_metadata && course.youtube_metadata.chapters) {
-        chaptersContainer.innerHTML = course.youtube_metadata.chapters.map(c => `
-            <button class="chapter-chip" data-seconds="${c.seconds}" title="${c.title}">
-                ▶ <strong>${c.timestamp}</strong> ${c.title}
+    // Video Iframe Setup
+    const iframe = document.querySelector("#masterclass-iframe");
+    if (iframe && course.youtube_metadata) {
+        const vid = course.youtube_metadata.video_id;
+        iframe.src = `https://www.youtube-nocookie.com/embed/${vid}?enablejsapi=1&origin=${window.location.origin}&rel=0`;
+    }
+
+    // Chapter Navigation Bar
+    const chapterBar = document.querySelector("#chapter-bar-container");
+    if (chapterBar && course.youtube_metadata && course.youtube_metadata.chapters) {
+        chapterBar.innerHTML = course.youtube_metadata.chapters.map((ch, idx) => `
+            <button class="chapter-chip ${idx === 0 ? 'active' : ''}" data-seconds="${ch.seconds}">
+                ▶ ${ch.timestamp} ${ch.title}
             </button>
         `).join("");
     }
 
-    // Sections & Markdown
+    // Render Course Sections (1 to 7)
     const contentContainer = document.querySelector("#course-content-container");
     if (contentContainer && course.sections) {
-        contentContainer.innerHTML = course.sections.map(s => `
-            <div class="course-section-block" id="section-${s.index}">
-                <div class="markdown-body">
-                    ${formatMarkdownToHTML(s.content_markdown)}
+        contentContainer.innerHTML = course.sections.map(sec => `
+            <section class="course-section-block" id="section-${sec.index}" style="margin-bottom: 36px;">
+                <h2 style="font-size: 1.6rem; color: var(--text-primary); border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 16px;">
+                    ${sec.title}
+                </h2>
+                <div class="section-markdown-body">
+                    ${formatMarkdownToHTML(sec.content_markdown)}
                 </div>
-            </div>
-        `).join("<hr style='margin: 32px 0; border: 0; border-top: 1px solid var(--border-color);'>");
+            </section>
+        `).join("");
     }
 
-    // Flashcards
+    // 3D Flashcards
     const flashcardsContainer = document.querySelector("#flashcards-container");
     if (flashcardsContainer && course.flashcards) {
-        flashcardsContainer.innerHTML = course.flashcards.map((fc, i) => `
-            <div class="flip-card">
+        flashcardsContainer.innerHTML = course.flashcards.map((fc, idx) => `
+            <div class="flip-card" data-idx="${idx}">
                 <div class="flip-card-inner">
                     <div class="flip-card-front">
-                        <span style="font-size: 0.8rem; color: var(--accent-blue); font-weight: 700;">KARTICA #${i + 1}</span>
-                        <h4 style="margin: 12px 0; font-size: 1.1rem;">${fc.front}</h4>
-                        <span class="flip-hint">👆 Klikni za objašnjenje</span>
+                        <span class="flashcard-badge">Pojam ${idx + 1}</span>
+                        <h3>${fc.front}</h3>
+                        <p style="font-size: 0.8rem; color: var(--accent-blue); margin-top: 12px;">(Klikni za odgovor ↻)</p>
                     </div>
                     <div class="flip-card-back">
-                        <span style="font-size: 0.8rem; color: var(--accent-purple); font-weight: 700;">ODGOVOR / DEFINICIJA</span>
-                        <p style="margin-top: 12px; font-size: 0.95rem; line-height: 1.5;">${fc.back}</p>
+                        <span class="flashcard-badge" style="background: rgba(34, 197, 94, 0.2); color: #86efac;">Definicija</span>
+                        <p>${fc.back}</p>
                     </div>
                 </div>
             </div>
@@ -258,7 +314,7 @@ function renderCourse(course) {
         questionsAnswered = 0;
         quizContainer.innerHTML = course.quiz.map((q, qIdx) => `
             <div class="quiz-question-card" data-idx="${qIdx}">
-                <h4 style="margin-bottom: 8px;">Pitanje ${qIdx + 1}: ${q.question}</h4>
+                <h4 style="margin-bottom: 12px; font-size: 1.05rem;">Pitanje ${qIdx + 1}: ${q.question}</h4>
                 <div class="quiz-options-list">
                     ${q.options.map((opt, optIdx) => `
                         <button class="quiz-option-btn" 
@@ -279,11 +335,19 @@ function renderCourse(course) {
 }
 
 /**
- * Lightweight in-browser Markdown parser with timestamp replacement
+ * 6. Robust In-Browser Markdown & Typography Parser
  */
 function formatMarkdownToHTML(md) {
     if (!md) return "";
     let html = md;
+
+    // Clean mathematical notation & LaTeX escapes
+    html = html.replace(/\\rightarrow/g, '➔');
+    html = html.replace(/\\times/g, '×');
+    html = html.replace(/\\le/g, '≤');
+    html = html.replace(/\\ge/g, '≥');
+    html = html.replace(/\\text\{([^}]+)\}/g, '$1');
+    html = html.replace(/\\?\$([^\$\n]+)\\?\$/g, '<strong><em>$1</em></strong>');
 
     // Replace [mm:ss] with interactive chapter pills
     html = html.replace(/\[(\d{1,2}:\d{2})\]/g, (match, ts) => {
@@ -292,30 +356,39 @@ function formatMarkdownToHTML(md) {
         return `<button class="inline-chapter-pill" data-seconds="${secs}" title="Premotaj na ${ts}">▶ ${ts}</button>`;
     });
 
+    // Clean stray markers
+    html = html.replace(/^\s*#{1,6}\s*$/gm, '');
+    html = html.replace(/^\s*---\s*$/gm, '<hr style="border: none; border-top: 1px solid var(--border-color); margin: 24px 0;">');
+
     // Replace headers
-    html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-    html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-    html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+    html = html.replace(/^### (.*$)/gim, '<h3 style="margin: 18px 0 10px 0; color: var(--accent-blue);">$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2 style="margin: 22px 0 12px 0;">$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1 style="margin: 26px 0 14px 0;">$1</h1>');
 
     // Replace bold & italic
     html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
     html = html.replace(/\*(.*?)\*/gim, '<em>$1</em>');
 
-    // Replace blockquotes
-    html = html.replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>');
+    // Blockquotes & Callouts
+    html = html.replace(/^\>\s*\[!TIP\]\s*(.*$)/gim, '<blockquote style="border-left: 4px solid var(--accent-green); background: rgba(34, 197, 94, 0.08); padding: 12px 16px; margin: 16px 0; border-radius: var(--radius-sm);">$1</blockquote>');
+    html = html.replace(/^\>\s*\[!WARNING\]\s*(.*$)/gim, '<blockquote style="border-left: 4px solid var(--accent-amber); background: rgba(245, 158, 11, 0.08); padding: 12px 16px; margin: 16px 0; border-radius: var(--radius-sm);">$1</blockquote>');
+    html = html.replace(/^\>\s*(.*$)/gim, '<blockquote style="border-left: 3px solid var(--accent-blue); padding: 8px 14px; margin: 12px 0; color: var(--text-secondary);">$1</blockquote>');
 
     // Replace code blocks
-    html = html.replace(/```([a-z]*)([\s\S]*?)```/gim, '<div class="code-sandbox"><pre><code>$2</code></pre></div>');
+    html = html.replace(/```([a-z]*)([\s\S]*?)```/gim, '<div class="code-sandbox" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; margin: 16px 0; overflow-x: auto;"><pre><code style="font-family: var(--font-mono); font-size: 0.9rem;">$2</code></pre></div>');
 
-    // Linebreaks
-    html = html.replace(/\n\n/g, '<p></p>');
+    // Lists
+    html = html.replace(/^\s*-\s+(.*$)/gim, '<div style="margin: 4px 0; padding-left: 18px; position: relative;"><span style="position: absolute; left: 0; color: var(--accent-blue);">•</span> $1</div>');
+    html = html.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<div style="margin: 6px 0; padding-left: 20px; position: relative;"><span style="position: absolute; left: 0; font-weight: 700; color: var(--accent-blue); font-size: 0.85rem;">$1.</span> $2</div>');
+
+    // Paragraph breaks
+    html = html.replace(/\n\n/g, '<p style="margin-bottom: 12px;"></p>');
 
     return html;
 }
 
-
 /**
- * 4. Autonomous Agent Traces & Metrics Rendering (autonomous-agents skill)
+ * 7. Autonomous Agent Traces & Metrics Rendering
  */
 function renderAgentTracesAndMetrics(course) {
     const metricsStrip = document.querySelector("#metrics-summary-strip");
@@ -341,7 +414,7 @@ function renderAgentTracesAndMetrics(course) {
                 <div class="trace-metric-label">Vreme Izvršenja</div>
             </div>
             <div class="trace-metric-tile">
-                <div class="trace-metric-value" style="font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <div class="trace-metric-value" style="font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     ${m.checkpoint_id || "lms-active"}
                 </div>
                 <div class="trace-metric-label">Thread / Checkpoint</div>
@@ -397,6 +470,3 @@ function toggleTraceDrawer() {
         if (btn) btn.textContent = "Prikaži Revizorski Dnevnik (▼)";
     }
 }
-
-// Hook into renderCourse
-const originalRenderCourse = typeof renderCourse === "function" ? renderCourse : null;

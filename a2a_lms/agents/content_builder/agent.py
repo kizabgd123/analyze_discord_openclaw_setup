@@ -1,6 +1,6 @@
 """Lead Content Builder Agent (Google ADK 2.0 A2A LMS).
 Synthesizes verified research and YouTube metadata into a 7-section interactive masterclass.
-Implements ReAct traces and active recall widgets.
+Implements ReAct traces, clean mathematical typography, and active recall widgets.
 """
 
 import re
@@ -57,10 +57,8 @@ class LeadContentBuilderAgent:
                 f"otvorite [Biomolecular Structure Viewer](sidecar://viewer)."
             )
 
-        sec1_content = f"""## 1. Uvod i Video Predavanje
-
-Dobrodošli u zvanični masterclass kurs: **{findings.topic}**.
-Ovaj modul kombinuje autentični video tutorijal visoke rezolucije sa interaktivnim vežbama, fleš-karticama i simulacijama.
+        sec1_content = f"""Dobrodošli u zvanični masterclass kurs: **{findings.topic}**.
+Ovaj program kombinuje autentični video tutorijal visoke rezolucije sa praktičnim vodičem, interaktivnim fleš-karticama i kvizom znanja.
 
 ### Autentični Video Tutorijal
 - **Naslov:** {youtube_meta.title}
@@ -70,8 +68,8 @@ Ovaj modul kombinuje autentični video tutorijal visoke rezolucije sa interaktiv
 
 ### Ključni Ishodi Učenja (Learning Outcomes)
 - **Ishod 1:** Savladavanje temeljnih mentalnih modela i mehanike ({findings.topic}).
-- **Ishod 2:** Usvajanje praktičnih tehnika korak-po-korak bez oslanjanja na zastarele metode.
-- **Ishod 3:** Prepoznavanje i eliminacija najčešćih grešaka u realnim scenarijima.
+- **Ishod 2:** Usvajanje praktičnih tehnika korak-po-korak bez oslanjanja na zastarele metode i intuiciju.
+- **Ishod 3:** Prepoznavanje i eliminacija najčešćih kognitivnih i tehničkih grešaka.
 - **Ishod 4:** Provera stečenih kompetencija kroz praktični izazov i interaktivni kviz znanja.
 
 ### Vremenske Oznake Predavanja (Interaktivni Skok na Poglavlje)
@@ -80,8 +78,8 @@ Kliknite na vremenski marker u tekstu ili u traci ispod plejera za trenutan skok
 """
 
         # 2. Build Sections 2-7 using LLM with structured prompts
-        prompt = f"""Ti si Lead Content Builder Agent u Google ADK A2A LMS sistemu.
-Tvoja uloga je da napišeš preostalih 6 celina masterclass kursa na čistom, bogatom i stručnom SRPSKOM jeziku.
+        prompt = f"""Ti si Lead Content Builder Agent u sistemu obrazovnih masterclass kurseva.
+Tvoja uloga je da napišeš preostalih 6 celina kursa na čistom, bogatom, realističnom i stručnom SRPSKOM jeziku.
 
 TEMA: {findings.topic}
 TIP DOMENA: {findings.domain_type}
@@ -92,28 +90,33 @@ NALAZI ISTRAŽIVANJA:
 - Zamke: {findings.traps_and_pitfalls}
 - Sažetak: {findings.raw_markdown[:600]}
 
-Napiši sadržaj za sledećih 6 celina:
-SEKCIJA 2: "2. Ključni Principi i Mehanika" (detaljna teorija, mentalni modeli, arhitektura).
-SEKCIJA 3: "3. Korak-po-Korak Tehnika i Primena" (akcioni vodič sa koracima; za programiranje daj kompletan čist kod; za netehničke teme daj biomehaniku i pozicioniranje).
-SEKCIJA 4: "4. Česte Greške i Zablude" (upozorenja, zamke i profesionalni saveti za izbegavanje grešaka).
-SEKCIJA 5: "5. Praktični Izazov i Trening Plan" (konkretan zadatak/vežba sa celovitim rešenjem).
-SEKCIJA 6: "6. Provera Znanja i Interaktivni Kviz" (najmanje 3 pitanja u striktnom formatu:
+STROGA PRAVILA ZA TEKST I MATEMATIKU:
+1. ZABRANJEN je sirovi LaTeX kod sa dolarima poput `\\$ \\times 2 \\$`, `\\rightarrow`, `\\text{{...}}`! Piši prirodne simbole: `×` (puta), `➔` (strelica), `Pot Odds = 50 / 200 = 25%`, `Outs × 2 = 18%`.
+2. ZABRANJENO je ostavljanje praznih oznaka `---` ili `###` bez teksta.
+3. Za programiranje: prikaži realan Python kod u ```python ``` blokovima.
+4. Za netehničke teme (poker, sport, šah): ZABRANI generisanje Python koda! Fokusiraj se na matematiku odluka, biomehaniku, psihologiju i stvarne primere.
+
+Napiši sadržaj za sledeće celine:
+SEKCIJA 2: "2. Ključni Principi i Mehanika" (detaljna teorija, mentalni modeli, pravila).
+SEKCIJA 3: "3. Korak-po-Korak Tehnika i Primena" (akcioni vodič sa koracima, scenarijima i formulama).
+SEKCIJA 4: "4. Česte Greške i Zablude" (upozorenja, zamke, zablude i profesionalni saveti za eliminaciju grešaka).
+SEKCIJA 5: "5. Praktični Izazov i Trening Plan" (konkretan zadatak sa kompletnim matematičkim ili taktičkim rešenjem).
+SEKCIJA 7: "7. Brzi Priručnik i Rezime" (sažeti zaključak i kontrolna lista pre svake akcije).
+
+KVIZ PITANJA (najmanje 3 pitanja sa 4 opcije, gde je tačan odgovor označen sa [x]):
 Pitanje 1: [Tekst pitanja]
 [ ] A) Opcija 1
 [x] B) Tačna opcija 2
 [ ] C) Opcija 3
 [ ] D) Opcija 4
 Objašnjenje: [Zašto je tačan odgovor B]
-)
-SEKCIJA 7: "7. Brzi Priručnik i Rezime" (sažeti bulleti i kontrolna lista).
 
-Takođe, na samom kraju dodaj blok sa 4 fleš-kartice u formatu:
 FLEŠ-KARTICE:
 P: [Pitanje/Pojam]
 O: [Odgovor/Definicija]
 """
 
-        llm_out = query_llm(prompt, system="Ti si vrhunski autor tehničkih i praktičnih kurseva.")
+        llm_out = query_llm(prompt, system="Ti si elitni autor vrhunskih edukativnih materijala i kurseva.")
         sections, flashcards, quiz_questions = self._parse_generated_content(llm_out, findings)
 
         # Prepend Section 1
@@ -166,6 +169,27 @@ O: [Odgovor/Definicija]
             execution_metrics=cost_guard.get_metrics() if cost_guard else None,
         )
 
+    def _clean_typography(self, text: str) -> str:
+        """Cleans unrendered LaTeX symbols, stray markers, and broken math formatting."""
+        if not text:
+            return ""
+        t = text
+        # Convert LaTeX escapes and math arrows
+        t = re.sub(r"\\rightarrow", "➔", t)
+        t = re.sub(r"\\times", "×", t)
+        t = re.sub(r"\\text\{([^}]+)\}", r"\1", t)
+        t = re.sub(r"\\le", "≤", t)
+        t = re.sub(r"\\ge", "≥", t)
+        t = re.sub(r"\\pm", "±", t)
+        # Strip literal \$ or $ around simple terms
+        t = re.sub(r"\\?\$([^\$\n]+)\\?\$", r"*\1*", t)
+        # Clean empty headings or stray hashes
+        t = re.sub(r"(?m)^\s*#{1,6}\s*$", "", t)
+        t = re.sub(r"(?m)^\s*---\s*$", "\n---\n", t)
+        # Strip multiple consecutive blank lines
+        t = re.sub(r"\n{3,}", "\n\n", t)
+        return t.strip()
+
     def _parse_generated_content(
         self, llm_text: str, findings: ResearchFindings
     ) -> Tuple[List[CourseSection], List[Flashcard], List[QuizQuestion]]:
@@ -186,50 +210,58 @@ O: [Odgovor/Definicija]
 
         # Extract sections using header regex
         for idx, title in sec_patterns:
-            header_pattern = rf"(?:SEKCIJA\s+{idx}[:\s]+|#+\s*{idx}\.?\s*)[^\n]*\n([\s\S]*?)(?=(?:SEKCIJA\s+\d+|#+\s*\d+\.|\Z|FLEŠ-KARTICE))"
-            match = re.search(header_pattern, llm_text, re.IGNORECASE)
-            if match and len(match.group(1).strip()) > 50:
-                content = match.group(1).strip()
+            if idx == 6:
+                # Section 6 in the body text should NEVER leak raw unformatted quiz questions!
+                content = (
+                    "U nastavku se nalazi interaktivni kviz znanja dizajniran za proveru razumevanja ključnih "
+                    f"koncepata, mehanike i donošenja odluka u oblasti **{findings.topic}**.\n\n"
+                    "Pažljivo pročitajte svako pitanje u interaktivnom modulu ispod teksta i izaberite opciju za koju smatrate "
+                    "da predstavlja ispravan stručni odgovor. Nakon odabira dobićete trenutnu povratnu informaciju i detaljno "
+                    "obrazloženje. Uspešan prolazak kviza (sa najmanje 70% tačnih odgovora) otključava zvanični verifikovani sertifikat."
+                )
             else:
-                # High quality deterministic section fallback grounded in findings
-                if idx == 2:
-                    content = (
-                        f"Temeljni principi za **{findings.topic}** zasnivaju se na sledećim konceptima:\n\n"
-                        + "\n".join([f"- **{m}:** Ključni gradivni element u praksi." for m in findings.mental_models])
-                        + "\n\nOvi principi omogućavaju stabilan napredak i izbegavanje haotičnog rada."
-                    )
-                elif idx == 3:
-                    content = (
-                        f"Implementacija korak-po-korak za **{findings.topic}**:\n\n"
-                        + "\n".join([f"1. **Korak {i+1}:** {step}" for i, step in enumerate(findings.practical_steps)])
-                        + "\n\nPrimenjujte ove korake sekvencijalno uz kontinuiranu samoevaluaciju."
-                    )
-                elif idx == 4:
-                    content = (
-                        f"Najčešće greške i zamke u oblasti **{findings.topic}**:\n\n"
-                        + "\n".join([f"- ⚠️ **{trap}:** Vodi do gubitka efikasnosti i loših navika." for trap in findings.traps_and_pitfalls])
-                        + "\n\n*Preporuka:* Postavite svesne mehanizme provere pre svakog koraka."
-                    )
-                elif idx == 5:
-                    content = (
-                        f"### Praktični Izazov: Savladavanje {findings.topic}\n\n"
-                        f"**Cilj zadatka:** Samostalno primenite mentalni model *{findings.mental_models[0] if findings.mental_models else 'Temeljni obrazac'}*.\n\n"
-                        f"**Plan treninga / vežbe:**\n"
-                        f"1. Uradite pripremu i analizirajte početno stanje (10 min).\n"
-                        f"2. Izvršite vežbu fokusirajući se na eliminaciju greške: *{findings.traps_and_pitfalls[0] if findings.traps_and_pitfalls else 'Požurivanje'}*.\n"
-                        f"3. Verifikujte rezultat i uporedite sa standardom."
-                    )
-                elif idx == 6:
-                    content = (
-                        f"U nastavku sledi interaktivna provera znanja. Rešite kviz ispod teksta kako biste potvrdili razumevanje."
-                    )
+                header_pattern = rf"(?:SEKCIJA\s+{idx}[:\s]+|#+\s*{idx}\.?\s*)[^\n]*\n([\s\S]*?)(?=(?:SEKCIJA\s+\d+|#+\s*\d+\.|\Z|KVIZ PITANJA|FLEŠ-KARTICE))"
+                match = re.search(header_pattern, llm_text, re.IGNORECASE)
+                if match and len(match.group(1).strip()) > 50:
+                    raw_content = match.group(1).strip()
+                    # Strip any accidental quiz blocks from regular sections
+                    raw_content = re.sub(r"Pitanje\s*\d*:[\s\S]*?(?=\Z|SEKCIJA)", "", raw_content, flags=re.IGNORECASE)
+                    content = self._clean_typography(raw_content)
                 else:
-                    content = (
-                        f"### Ključni Zaključak (Quick Reference)\n\n"
-                        f"- Uvek poštujte redosled: Analiza -> Priprema -> Izvršenje -> Verifikacija.\n"
-                        f"- Zadržite fokus na dokazanim principima, a ne na improvizaciji.\n"
-                        f"- Kontinuirano testirajte razumevanje kroz praktične primere."
-                    )
+                    if idx == 2:
+                        content = (
+                            f"Temeljni principi za **{findings.topic}** zasnivaju se na sledećim dokazanim konceptima:\n\n"
+                            + "\n".join([f"- **{m}:** Ključni gradivni element u praksi." for m in findings.mental_models])
+                            + "\n\nOvi principi omogućavaju stabilan napredak, razumevanje verovatnoće i eliminaciju haotičnog rada."
+                        )
+                    elif idx == 3:
+                        content = (
+                            f"Implementacija korak-po-korak za **{findings.topic}**:\n\n"
+                            + "\n".join([f"1. **Korak {i+1}:** {step}" for i, step in enumerate(findings.practical_steps)])
+                            + "\n\nPrimenjujte ove korake sekvencijalno uz kontinuiranu procenu rizika i pozicije."
+                        )
+                    elif idx == 4:
+                        content = (
+                            f"Najčešće greške i opasne zamke u oblasti **{findings.topic}**:\n\n"
+                            + "\n".join([f"- ⚠️ **{trap}:** Vodi do gubitka kontrole i pada performansi." for trap in findings.traps_and_pitfalls])
+                            + "\n\n*Preporuka:* Postavite svesne mehanizme provere pre donošenja svake ključne odluke."
+                        )
+                    elif idx == 5:
+                        content = (
+                            f"### Praktični Izazov: Savladavanje {findings.topic}\n\n"
+                            f"**Cilj zadatka:** Samostalno primenite mentalni model *{findings.mental_models[0] if findings.mental_models else 'Temeljni obrazac'}* u realnom scenariju.\n\n"
+                            f"**Plan treninga / vežbe:**\n"
+                            f"1. Analizirajte početnu situaciju i raspoložive podatke (uloge, verovatnoću, poziciju).\n"
+                            f"2. Izvršite akciju fokusirajući se na eliminaciju greške: *{findings.traps_and_pitfalls[0] if findings.traps_and_pitfalls else 'Nekontrolisana improvizacija'}*.\n"
+                            f"3. Izračunajte očekivanu vrednost (EV) odluke i proverite rezultat."
+                        )
+                    else:
+                        content = (
+                            f"### Ključni Zaključak (Quick Reference)\n\n"
+                            f"- **Pozicija i disciplina:** Uvek donosite odluke na osnovu informacija i kalkulacije, a ne emocija.\n"
+                            f"- **Matematika pre intuicije:** Oslonite se na dokazane formule i teoriju verovatnoće.\n"
+                            f"- **Kontrola emocija:** Zaustavite se čim primetite frustraciju ili odstupanje od strategije."
+                        )
 
             sections.append(CourseSection(index=idx, title=title, content_markdown=content))
 
@@ -238,21 +270,25 @@ O: [Odgovor/Definicija]
         if fc_block:
             qa_pairs = re.findall(r"P:\s*([^\n]+)\s*\n\s*O:\s*([^\n]+)", fc_block.group(1))
             for p, o in qa_pairs[:6]:
-                flashcards.append(Flashcard(front=p.strip(), back=o.strip()))
+                flashcards.append(Flashcard(front=self._clean_typography(p.strip()), back=self._clean_typography(o.strip())))
 
-        if len(flashcards) < 2:
+        if len(flashcards) < 3:
             flashcards = [
                 Flashcard(
-                    front=f"Šta je ključni princip za {findings.topic}?",
-                    back=findings.core_principles[0] if findings.core_principles else "Dosledna primena dokazanih modela.",
+                    front=f"Šta je ključni koncept za {findings.topic}?",
+                    back=findings.core_principles[0] if findings.core_principles else "Dosledno donošenje odluka zasnovano na dokazanim modelima.",
                 ),
                 Flashcard(
-                    front="Koja je najčešća zamka koju treba izbeći?",
-                    back=findings.traps_and_pitfalls[0] if findings.traps_and_pitfalls else "Nekontrolisana improvizacija.",
+                    front="Koja je najopasnija zamka koju profesionalci moraju izbeći?",
+                    back=findings.traps_and_pitfalls[0] if findings.traps_and_pitfalls else "Donošenje odluka pod uticajem emocija i privremenih gubitaka.",
                 ),
                 Flashcard(
-                    front="Koji je prvi praktični korak u implementaciji?",
-                    back=findings.practical_steps[0] if findings.practical_steps else "Postavljanje jasnog cilja i okruženja.",
+                    front="Koji je prvi korak pri analizi situacije?",
+                    back=findings.practical_steps[0] if findings.practical_steps else "Definisanje početnog stanja, uloga i verovatnoće.",
+                ),
+                Flashcard(
+                    front="Šta znači razmišljanje u rasponima (Range-based thinking)?",
+                    back="Procena svih mogućih ruku ili opcija koje protivnik može imati u zavisnosti od njegove pozicije i ranijih akcija.",
                 ),
             ]
 
@@ -264,43 +300,54 @@ O: [Odgovor/Definicija]
         )
         for q, opt_a, opt_b, opt_c, opt_d, expl in q_matches:
             options = [
-                re.sub(r"^\[\s*\]\s*[A-D]\)\s*", "", opt_a).strip(),
-                re.sub(r"^\[[ xX]\]\s*[A-D]\)\s*", "", opt_b).strip(),
-                re.sub(r"^\[\s*\]\s*[A-D]\)\s*", "", opt_c).strip(),
-                re.sub(r"^\[\s*\]\s*[A-D]\)\s*", "", opt_d).strip(),
+                self._clean_typography(re.sub(r"^\[\s*\]\s*[A-D]\)\s*", "", opt_a).strip()),
+                self._clean_typography(re.sub(r"^\[[ xX]\]\s*[A-D]\)\s*", "", opt_b).strip()),
+                self._clean_typography(re.sub(r"^\[\s*\]\s*[A-D]\)\s*", "", opt_c).strip()),
+                self._clean_typography(re.sub(r"^\[\s*\]\s*[A-D]\)\s*", "", opt_d).strip()),
             ]
             quiz_questions.append(
                 QuizQuestion(
-                    question=q.strip(),
+                    question=self._clean_typography(q.strip()),
                     options=options,
                     correct_index=1,
-                    explanation=expl.strip(),
+                    explanation=self._clean_typography(expl.strip()),
                 )
             )
 
         if not quiz_questions:
             quiz_questions = [
                 QuizQuestion(
-                    question=f"Šta je osnovni fokus pri savladavanju teme: {findings.topic}?",
+                    question=f"Šta je primarni fokus u oblasti {findings.topic}?",
                     options=[
-                        "Površno testiranje bez jasnog plana",
-                        findings.core_principles[0] if findings.core_principles else "Utemeljenost na dokazanim principima",
-                        "Zanemarivanje ranih grešaka u biomehanici/kodu",
-                        "Sintetička simulacija bez verifikacije",
+                        "Igranje na sreću i ignorisanje pozicije",
+                        findings.core_principles[0] if findings.core_principles else "Donošenje odluka sa pozitivnom očekivanom vrednošću (+EV)",
+                        "Ignorisanje ranih grešaka",
+                        "Emocionalno reagovanje na privremeni poraz",
                     ],
                     correct_index=1,
-                    explanation=f"Utemeljenost na dokazanim principima garantuje dosledne i merljive rezultate.",
+                    explanation="Donošenje odluka sa pozitivnom očekivanom vrednošću (+EV) jedini je put do dugoročne profitabilnosti i uspeha.",
                 ),
                 QuizQuestion(
-                    question="Kako se eliminišu najčešće zamke u radu?",
+                    question="Šta predstavlja 'Range-based thinking' (razmišljanje u rasponima)?",
                     options=[
-                        "Ubrzavanjem tempa bez kontrole",
-                        "Kontinuiranom verifikacijom i samorefleksijom u svakom koraku",
-                        "Ignorisanjem upozorenja mentora/sudije",
-                        "Korišćenjem nepotvrđenih hipoteza",
+                        "Pogađanje tačne dve karte koje protivnik drži",
+                        "Analiza svih mogućih kombinacija koje protivnik može imati u datoj situaciji",
+                        "Ulaganje maksimalnog iznosa u svakom krugu",
+                        "Čekanje isključivo najjačeg para pre ulaska u igru",
                     ],
                     correct_index=1,
-                    explanation="Sistematska provera na svakom koraku sprečava kumuliranje grešaka.",
+                    explanation="Vrhunski igrači analiziraju spektar (range) svih mogućih kombinacija koje protivnik može imati na osnovu pozicije i akcije.",
+                ),
+                QuizQuestion(
+                    question="Kako se definiše pojam 'Tilt' i kako ga neutralisati?",
+                    options=[
+                        "Tehnika agresivnog blefiranja protivnika",
+                        "Stanje emocionalne frustracije koje vodi do iracionalnih odluka; neutrališe se pauzom i strogom disciplinom",
+                        "Matematička formula za deljenje pota",
+                        "Vrsta početne kombinacije karata",
+                    ],
+                    correct_index=1,
+                    explanation="Tilt nastaje kada emocije preuzmu kontrolu nad strategijom. Prepoznavanje tilta i pravovremeni prekid igre štite bankroll.",
                 ),
             ]
 

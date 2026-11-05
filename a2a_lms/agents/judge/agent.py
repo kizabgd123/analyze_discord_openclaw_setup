@@ -1,6 +1,6 @@
 """Senior Judge Agent (Google ADK 2.0 A2A LMS).
-Strict auditor and evaluator enforcing accuracy, Serbian language parity, and domain fit.
-Implements Evaluator-Optimizer reflection pattern and anti-fabrication grounding audit.
+Strict auditor and evaluator enforcing accuracy, Serbian language parity, domain fit, and grounding.
+Implements Evaluator-Optimizer reflection pattern without static notebook lock-in.
 """
 
 import json
@@ -25,7 +25,7 @@ class SeniorJudgeAgent:
 
         thought_msg = (
             f"Vrši se nezavisna evaluacija istraživanja za temu '{findings.topic}' (domen: {findings.domain_type}). "
-            f"Proveravam usklađenost sa srpskim jezikom, odsustvo halucinacija i postojanje autentičnih citata ({len(findings.source_citations)} citata)."
+            f"Proveravam tačnost mehanike/matematike, srpski jezik, i postojanje proverenih domenskih referenci ({len(findings.source_citations)} citata)."
         )
 
         prompt = f"""Ti si Senior Judge Agent u sistemu verifikacije obrazovnih sadržaja.
@@ -33,7 +33,7 @@ Tvoj zadatak je da izvršiš rigoroznu reviziju priloženog istraživanja.
 
 TEMA: {findings.topic}
 TIP DOMENA: {findings.domain_type}
-IZVORNI CITATI: {findings.source_citations}
+IZVORNE REFERENCE: {findings.source_citations}
 NALAZI ISTRAŽIVANJA:
 - Mentalni modeli: {findings.mental_models}
 - Temeljni principi: {findings.core_principles}
@@ -42,7 +42,7 @@ NALAZI ISTRAŽIVANJA:
 - Sažetak: {findings.raw_markdown[:800]}
 
 RUBRIKA OCENJIVANJA (Ocene 1-10):
-1. Tačnost (accuracy_score): Da li su svi koncepti činjenično tačni i utemeljeni na izvorima? (Za netehničke teme, striktno zabranjen generisani programski kod).
+1. Tačnost (accuracy_score): Da li su svi koncepti činjenično tačni, matematički/mehanički ispravni i utemeljeni na pravilima? (Za igre, sport i netehničke teme, striktno zabranjen generisani programski kod).
 2. Jezički kontinuitet (language_parity_score): Da li je sve na čistom, prirodnom i stručnom srpskom jeziku?
 3. Kompletnost i domen (completeness_score): Da li su pokriveni mentalni modeli, koraci i zamke u skladu sa domenom?
 

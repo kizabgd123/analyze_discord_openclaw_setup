@@ -1,6 +1,6 @@
 """FastAPI Server with Real-time SSE Streaming (Google ADK A2A LMS).
 Exposes /api/generate_course, /api/chat_stream, and /api/checkpoints endpoints.
-Implements durable execution checkpointing and cost guards from autonomous-agents skill.
+Implements dynamic YouTube search, authentic domain grounding, durable checkpoints, and cost guards.
 """
 
 import os
@@ -21,8 +21,8 @@ from a2a_lms.agents.orchestrator.agent import LMSOrchestrator
 
 app = FastAPI(
     title="Google ADK A2A Multi-Agent LMS",
-    description="Autonomous Agent-to-Agent Course Generation Engine grounded in NotebookLM 9c8878e1-1fb4-4035-b022-7678a10be7f3",
-    version="1.1.0",
+    description="Autonomous Agent-to-Agent Course Generation Engine with Zero-Mock Dynamic Discovery",
+    version="1.2.0",
 )
 
 app.add_middleware(
@@ -39,7 +39,7 @@ checkpoint_mgr = LMSCheckpointManager()
 
 class CourseRequest(BaseModel):
     topic: str = Field(..., min_length=2, description="Course topic to research and generate")
-    notebook_id: Optional[str] = Field("9c8878e1-1fb4-4035-b022-7678a10be7f3", description="NotebookLM brain ID")
+    notebook_id: Optional[str] = Field(None, description="Optional NotebookLM brain ID")
     thread_id: Optional[str] = Field(None, description="Optional durable thread ID to resume or assign")
     resume: bool = Field(default=False, description="Whether to resume from existing checkpoint if available")
 
@@ -49,6 +49,7 @@ async def health_check():
     return {
         "status": "healthy",
         "engine": "google-adk-2.0-a2a",
+        "dynamic_youtube_search": True,
         "autonomous_guards": True,
         "zero_mock_enforced": True,
         "notebook_brain_id": "9c8878e1-1fb4-4035-b022-7678a10be7f3",
@@ -74,7 +75,7 @@ async def get_checkpoint(thread_id: str):
 async def generate_course(req: CourseRequest):
     """Direct execution endpoint for course generation with optional checkpoint resume."""
     try:
-        orchestrator = LMSOrchestrator(notebook_id=req.notebook_id or "9c8878e1-1fb4-4035-b022-7678a10be7f3")
+        orchestrator = LMSOrchestrator(notebook_id=req.notebook_id)
         course = await orchestrator.run(
             topic=req.topic,
             thread_id=req.thread_id,
@@ -88,7 +89,7 @@ async def generate_course(req: CourseRequest):
 @app.get("/api/chat_stream")
 async def chat_stream(
     topic: str = Query(..., min_length=2, description="Topic for course generation"),
-    notebook_id: str = Query("9c8878e1-1fb4-4035-b022-7678a10be7f3", description="NotebookLM brain ID"),
+    notebook_id: Optional[str] = Query(None, description="Optional NotebookLM brain ID"),
     thread_id: Optional[str] = Query(None, description="Optional thread ID"),
     resume: bool = Query(False, description="Resume from checkpoint"),
 ):
