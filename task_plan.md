@@ -57,7 +57,46 @@ Phase 4: Acceptance Test on Kanban Board
 - [x] Git commit all Phase 4 & 5 changes
 - **Status:** complete ✅
 
-## Key Questions
+## Autonomous Research Engine (7 Pillars Methodology)
+
+### Phase R1: Decoupling & Skills Upgrade for 7 Pillars
+- [x] Remove communication channel dependencies from skills & profiles (pure native Hermes Kanban + persistent filesystem)
+- [x] Upgrade `research-relay` skill: Add explicit Reciprocal Relay specifications (`relay_A.md` and `relay_B.md`, extending peer findings)
+- [x] Upgrade `research-orchestrator` skill: Add 7-pillar architecture, Hypothesis Engine ranking & Kanban dependency assignment
+- [x] Upgrade `experiment-engineer` skill: Add autonomous consecutive experimentation logic (post-run delta analysis vs baseline, leaderboard update, automated next task proposal)
+- [x] Upgrade `evidence-verifier` skill: Add isolated execution & methodological constraint verification
+- [x] Sync updated skills to `~/.hermes/skills/research-relay/` and profile directories
+- **Status:** complete ✅
+
+### Phase R2: Reciprocal Research Relay & Hypothesis Engine Execution
+- [ ] Verify Independent Discoveries exist: `kiza_discoveries.md` and `kreten_discoveries.md`
+- [ ] Create Reciprocal Relay Kanban task for `kiza`: read `kreten_discoveries.md`, generate `research/discoveries/relay_kiza.md`
+- [ ] Create Reciprocal Relay Kanban task for `kreten`: read `kiza_discoveries.md`, generate `research/discoveries/relay_kreten.md`
+- [ ] Execute both reciprocal relay tasks via Hermes Kanban
+- [ ] Orchestrator Hypothesis Engine: synthesize `relay_kiza.md` + `relay_kreten.md` into ranked `research/hypotheses.md` (HYP_001, HYP_002, HYP_003)
+- **Status:** pending
+
+### Phase R3: Autonomous Experimentation — Consecutive Cycles (EXP_001 & EXP_002)
+- [ ] Cycle 1 (EXP_001): OOF Target Encoding baseline vs Regularization (completed baseline, AUC=0.6981)
+- [ ] Cycle 2 (EXP_002): Autonomous next experiment formulated from HYP_002 (e.g. M-estimate parameter grid sensitivity: m in {1, 5, 10, 20, 50})
+- [ ] Execute EXP_002 via Experiment Engineer on Kanban (`t_exp_002`)
+- [ ] Record results in `experiments/experiment_log.md` and update `experiments/local_leaderboard.md`
+- [ ] Formulate evidence-based next action in `planning/next_actions.md`
+- **Status:** pending
+
+### Phase R4: Strengthened Independent Verification in Isolated Context
+- [ ] Isolated verification task assigned on Kanban to Evidence Verifier (`kreten`)
+- [ ] Verify EXP_001 and EXP_002 artifacts, SHA256 checksums, script execution exit codes
+- [ ] Audit fold leakage constraints (verify target values are completely separated across folds)
+- [ ] Produce comprehensive verification report in `verification/evidence.md` with final PASS/FAIL verdict
+- **Status:** pending
+
+### Phase R5: Persistent Knowledge Audit & Comprehensive Acceptance Report
+- [ ] Verify all 7 pillars have complete file-backed persistence without data loss
+- [ ] Pre-commit hook & JudgeGuard post-check
+- [ ] Generate comprehensive acceptance artifact `AUTONOMOUS_RESEARCH_ENGINE_DELIVERABLES.md`
+- [ ] Git commit all changes
+- **Status:** pending
 1. How to coordinate Research Relay without bot-to-bot chat?
    *Answer*: Via Hermes Kanban cards, artifact references (`discoveries/<agent>.md`), and dependency gating. Agents write to disk; next stage reads from disk.
 2. How to ensure independent discovery?

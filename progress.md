@@ -107,6 +107,27 @@
   - `progress.md` (updated)
   - `WORK_LOG.md` (updated)
 
+### Phase R1: Decoupling & Skills Upgrade for 7 Pillars
+- **Status:** complete
+- **Started:** 2026-11-06 16:23 CET — **Completed:** 2026-11-06 16:25 CET
+- Actions taken:
+  - Executed JudgeGuard pre-check for Phase R1 (PASSED).
+  - Upgraded `research-relay/SKILL.md`: implemented bilateral reciprocal relay (`relay_A.md` and `relay_B.md`), non-adversarial knowledge extension.
+  - Upgraded `research-orchestrator/SKILL.md`: codified 7-pillar architecture, removed communication channel assumptions, codified Hypothesis Engine and consecutive experimentation.
+  - Upgraded `experiment-engineer/SKILL.md`: codified consecutive multi-cycle experimentation (delta calculation, local leaderboard updates, automated next experiment formulation).
+  - Upgraded `evidence-verifier/SKILL.md`: codified isolated context verification, raw script re-execution, fold leakage audit, and SHA256 integrity check.
+  - Synced all updated skills to `~/.hermes/skills/research-relay/` and profile skill directories (`kiza`, `kreten`).
+  - Updated `templates/research-workspace/research/discoveries/README.md` to document reciprocal relay artifacts.
+- Files created/modified:
+  - `skills/research-relay/research-relay/SKILL.md` (updated)
+  - `skills/research-relay/research-orchestrator/SKILL.md` (updated)
+  - `skills/research-relay/experiment-engineer/SKILL.md` (updated)
+  - `skills/research-relay/evidence-verifier/SKILL.md` (updated)
+  - `templates/research-workspace/research/discoveries/README.md` (updated)
+  - `task_plan.md` (updated)
+  - `progress.md` (updated)
+  - `WORK_LOG.md` (updated)
+
 ## Test Results
 | Test | Expected | Actual | Status |
 |------|----------|--------|--------|
