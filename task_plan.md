@@ -97,6 +97,37 @@ Phase 4: Acceptance Test on Kanban Board
 - [x] Generate comprehensive acceptance artifact `AUTONOMOUS_RESEARCH_ENGINE_DELIVERABLES.md`
 - [x] Git commit all changes
 - **Status:** complete ✅
+
+## Final Audit & Scientific Precision Verification
+
+### Phase A1: Correct EXP_002 Reporting & Scope in Research Workspace Files
+- [x] Correct `experiment_log.md`: distinguish peak mean Val AUC at $m=10.0$ from minimum fold std dev at $m=1000.0$.
+- [x] Clarify 5-fold CV vs external test performance across all logs.
+- [x] Correct `hypotheses.md`: update `HYP_001` and `HYP_002` scope to OOF CV validation AUC (not test AUC).
+- [x] Refute hypothesis that peak AUC and minimum fold variance coincide (`HYP_002_SUB`).
+- [x] Update `local_leaderboard.md` to clearly present the Performance Champion ($m=10.0$) and Stability Champion ($m=1000.0$).
+- [x] JudgeGuard pre/post checks and Git commit `f07d6dd`.
+- **Status:** complete ✅
+
+### Phase A2: Strengthen Independent Verification & Document Continuation Contract
+- [x] Expand `verification/evidence.md`: document evidence of fresh isolated verifier context (profile `kreten`, worker PID 1969005, subshell, filesystem path).
+- [x] Conduct and document dual-side code inspection of `MEstimateOOFEncoder.fit_transform`:
+  - Validation-side: 0% target leakage, partition-by-partition mapping, unseen level handling.
+  - Training-side: loop overwriting mechanism, difference between composite array evaluation vs strict in-loop fold evaluation (0.75167 vs 0.75067 Train AUC).
+- [x] Document exact reproducibility inputs, seeds (`seed=42`), distributions, scripts, and SHA256 hashes.
+- [x] Document autonomous continuation contract in `planning/next_actions.md`:
+  - Genesis of EXP_003 from EXP_002.
+  - Enforcement of resource limits and stopping conditions (milestone budget, metric plateau rule, Kanban parent gating).
+  - Explicit documentation of what remains unexecuted (`t_exp_003` queued, holdout test unexecuted).
+- [x] JudgeGuard pre/post checks and Git commit `557333e`.
+- **Status:** complete ✅
+
+### Phase A3: Update Comprehensive Acceptance Report & Produce Final Audit Report
+- [x] Update `AUTONOMOUS_RESEARCH_ENGINE_DELIVERABLES.md` in brain directory with corrected reporting, refined scopes, dual-side code inspection, exact reproducibility data, and continuation governance.
+- [x] Generate standalone `FINAL_AUDIT_REPORT.md` separating Verified Facts, Reported Claims, Corrected Conclusions, and Remaining Limitations.
+- [x] Update `task_plan.md` and `progress.md`.
+- [x] JudgeGuard pre/post checks and Git commit.
+- **Status:** complete ✅
 1. How to coordinate Research Relay without bot-to-bot chat?
    *Answer*: Via Hermes Kanban cards, artifact references (`discoveries/<agent>.md`), and dependency gating. Agents write to disk; next stage reads from disk.
 2. How to ensure independent discovery?
