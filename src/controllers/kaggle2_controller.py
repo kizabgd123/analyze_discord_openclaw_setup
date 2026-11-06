@@ -96,8 +96,11 @@ class Kaggle2Controller:
 
     async def handle_start(self, interaction: discord.Interaction):
         """Entry point for /kaggle2 start slash command."""
-        if not interaction.response.is_done():
-            await interaction.response.defer()
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.defer()
+        except Exception:
+            pass
 
         if not check_admin_auth(interaction):
             await interaction.followup.send("❌ Pristup odbijen: Niste autorizovani administrator.", ephemeral=True)

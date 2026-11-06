@@ -1512,8 +1512,14 @@ kaggle2_group = app_commands.Group(
     description="🚀 Pokreni autonoman tim agenata za playground-series-s6e11 (Admin Only)"
 )
 async def kaggle2_start_slash(interaction: discord.Interaction):
-    if not interaction.response.is_done():
-        await interaction.response.defer()
+    try:
+        if not interaction.response.is_done():
+            await interaction.response.defer()
+    except discord.NotFound:
+        logger.warning("[kaggle2] Interaction already acknowledged or expired.")
+        return
+    except Exception as e:
+        logger.warning(f"[kaggle2] Defer warning: {e}")
     from src.controllers.kaggle2_controller import kaggle2_controller
     await kaggle2_controller.handle_start(interaction)
 

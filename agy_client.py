@@ -20,12 +20,14 @@ logger = logging.getLogger("AgyClient")
 
 AGY_BIN = os.getenv("AGY_BIN", shutil.which("agy") or "/home/kizamladjanijebac/.local/bin/agy")
 
-DEFAULT_AGY_ACCOUNT = os.getenv("AGY_ACCOUNT", "kiza101288@gmail.com")
+DEFAULT_AGY_ACCOUNT = os.getenv("AGY_ACCOUNT", "999@mrcleanervracar.com")
 
-# Verified Antigravity Accounts with kiza101288@gmail.com as primary
+# Verified Antigravity Accounts with 999@mrcleanervracar.com as primary
 AGY_ACCOUNTS: List[str] = [
-    "kiza101288@gmail.com",
+    "999@mrcleanervracar.com",
+    "glavni@mrcleanervracar.com",
     "promo@mrcleanervracar.com",
+    "kiza101288@gmail.com",
     "lovajetu@gmail.com",
     "lifemysolver@gmail.com",
     "stojanoviczoran887@gmail.com",
@@ -45,8 +47,8 @@ def get_next_agy_account() -> str:
 def _execute_single_agy_run(
     prompt: str,
     system: Optional[str] = None,
-    model: str = "gemini-3.8-flash-high",
-    account: str = "kiza101288@gmail.com",
+    model: str = "claude-sonnet-4-6",
+    account: str = "999@mrcleanervracar.com",
     timeout: int = 45,
 ) -> str:
     """Runs a single prompt under a specific Antigravity account."""
@@ -91,6 +93,36 @@ def _execute_single_agy_run(
             return cleaned
 
     err = result.stderr.strip()
+    # Auto-fallback to claude-sonnet-4-6 if gemini individual quota is reached
+    if ("RESOURCE_EXHAUSTED" in err or "quota reached" in err.lower()) and model != "claude-sonnet-4-6":
+        logger.warning(f"[agy-cli] Kvota dostignuta za {model} na {account}. Pokrećem fallback na model claude-sonnet-4-6...")
+        fallback_cmd = [
+            AGY_BIN,
+            "-p", full_prompt,
+            "--model", "claude-sonnet-4-6",
+            "--dangerously-skip-permissions",
+            "--disable-slash-commands",
+        ]
+        fb_res = subprocess.run(
+            fallback_cmd,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=os.getcwd(),
+            env=env,
+        )
+        fb_out = fb_res.stdout.strip()
+        if fb_out:
+            clean_lines = [
+                re.sub(r"^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s*Fetching available models\.\.\.", "", l).strip()
+                for l in fb_out.splitlines()
+            ]
+            cleaned_fb = "\n".join([l for l in clean_lines if l]).strip()
+            if cleaned_fb:
+                logger.info(f"[agy-cli] claude-sonnet-4-6 model fallback uspešan na {account}")
+                return cleaned_fb
+
     logger.warning(f"[agy-cli] Upozorenje/Greška za nalog {account} (kod {result.returncode}): {err}")
     if err and "error" not in err.lower() and "silent auth failed" not in err.lower():
         return err
@@ -100,7 +132,7 @@ def _execute_single_agy_run(
 def query_agy_cli(
     prompt: str,
     system: Optional[str] = None,
-    model: str = "gemini-3.8-flash-high",
+    model: str = "claude-sonnet-4-6",
     account: Optional[str] = None,
     timeout: int = 150,
     auto_failover: bool = True,
