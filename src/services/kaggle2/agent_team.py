@@ -17,6 +17,7 @@ import sys
 import re
 import json
 import shutil
+import hashlib
 import logging
 import asyncio
 import subprocess
@@ -282,22 +283,36 @@ class AgentTeamOrchestrator:
         phase_timings["nlm_seconds"] += round(asyncio.get_event_loop().time() - nlm_t0, 2)
         tech_ans = tech_res.get("answer") or "Standard GBDT with categorical frequency encoding"
 
+        # Identify baseline from state if available
+        exp0_rec = next((e for e in self.state.get("experiments", []) if e.get("exp_no") == 0), None)
+        base_cv_str = f"{exp0_rec['cv_score']:.5f}" if exp0_rec and exp0_rec.get("cv_score") else "NONE"
+
         strat_prompt = (
             f"You are the Strategist. Based on research below, propose a concrete, testable hypothesis "
             f"for Experiment #{exp_no} predicting credit card fraud (metric: ROC-AUC).\n\n"
+            f"DATASET SCHEMA (24 true features + id as key):\n"
+            f"- Key (dropped before model): id\n"
+            f"- 24 Features: amount_usd, hours_since_last_txn, txn_count_last_24h, distance_from_home_km, "
+            f"card_age_months, customer_age, account_balance_usd, cvv_retry_count, velocity_score, "
+            f"time_of_day_hour, day_of_week, merchant_risk_score, prior_disputes, merchant_category, "
+            f"card_type, auth_method, channel, device_type, is_foreign_transaction, is_new_merchant, "
+            f"used_vpn, ip_country_mismatch, billing_shipping_mismatch, is_ai_generated_scam_attempt.\n"
+            f"CRITICAL DATASET RULE: Use ONLY existing columns above. There is NO user_id, customer_id, or card_id! "
+            f"Never assume or invent user-level identifiers.\n\n"
             f"DO NOT propose any idea already tested or blocked:\n"
             f"Past Tested: {json.dumps(past_hyps)}\n"
             f"Past Blocked: {json.dumps(blocked_hyps)}\n\n"
             f"Research Insights:\n{tech_ans[:3500]}\n\n"
             f"IMPORTANT SYNTHETIC DATASET GUIDANCE: In Playground S6E11, public benchmarks demonstrate that "
-            f"digit-trie features (e.g. cents extraction, integer parts, digit lengths) and in-fold target encodings "
-            f"yield strong ROC-AUC improvements (up to 0.952+), whereas arbitrary pairwise crosses or ungrounded manual ratios "
-            f"often collapse or degrade tree splits. Focus on grounded, high-signal representations.\n\n"
+            f"digit-trie features (cents extraction, integer parts, digit lengths) and in-fold target encodings "
+            f"(using `oof_target_encode` helper) yield strong improvements (up to 0.952+), whereas arbitrary pairwise crosses "
+            f"or ungrounded manual ratios degrade tree splits. Focus on grounded, high-signal representations.\n\n"
             f"Structure your proposal as:\n"
             f"HYPOTHESIS: <clear testable statement>\n"
-            f"FEATURE_ENGINEERING: <specific transformations>\n"
+            f"FEATURE_ENGINEERING: <specific transformations using existing 24 columns only>\n"
             f"MODEL_FAMILY: <e.g. LightGBM, CatBoost, or XGBoost>\n"
-            f"EXPECTED_IMPACT: <expected ROC-AUC impact>"
+            f"BASELINE_TO_COMPARE: Our best verified CV: {base_cv_str}\n"
+            f"NOTEBOOKLM_EVIDENCE: <Quoted text from NotebookLM research with source attribution; public numbers allowed ONLY inside quoted text>"
         )
         strat_resp = await asyncio.to_thread(query_llm, strat_prompt, system="You are the ML Strategist. Ground every claim in facts. Do not write code.")
         self.append_transcript(agent="Strategist", role="Strategist", message=strat_resp)
@@ -412,6 +427,7 @@ class AgentTeamOrchestrator:
             })
 
             lesson_record = await self.lesson_service.create_lesson(
+                run_id=self.run_id,
                 exp_no=exp_no,
                 hypothesis=strat_resp,
                 methodology="NOT RUN — Blocked during debate stage",
@@ -516,17 +532,20 @@ Return ONLY the runnable Python code for `model_part.py` inside ```python ... ``
 
         # ── Step 5: Execution & Debug Loop ──
         self.runner.timeout_seconds = timeout_seconds
+        oof_file = self.run_dir / f"oof_exp{exp_no}.parquet"
         cmd_args = [
             "--run-dir", str(self.run_dir.resolve()),
             "--data-dir", str(self.data_dir.resolve()),
             "--folds-file", str((self.folds_file or (self.run_dir / "folds.json")).resolve()),
-            "--model-module", str(model_module_path.resolve())
+            "--model-module", str(model_module_path.resolve()),
+            "--exp-no", str(exp_no)
         ]
 
         runner_start = asyncio.get_event_loop().time()
-        exec_res = await self.runner.execute_script(scaffold_dst, args=cmd_args, verify_oof=True)
+        exec_res = await self.runner.execute_script(scaffold_dst, args=cmd_args, verify_oof=True, oof_file=oof_file)
         exec_status = exec_res.get("status", "FAILED")
         cv_score = exec_res.get("cv_score")
+        fold_scores = exec_res.get("fold_scores", {})
         debug_attempts = 0
         max_debug_attempts = 2
 
@@ -547,7 +566,7 @@ CURRENT CODE (`model_part.py`):
 {code_str}
 
 Fix the bug in `model_part.py`. Maintain the required signature:
-def train_predict(X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame, y_val: pd.Series) -> np.ndarray:
+def train_predict(X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame, y_val: pd.Series, X_test: Optional[pd.DataFrame] = None) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
 Return ONLY the corrected Python code inside ```python ... ```.
 """
             fix_resp = await asyncio.to_thread(query_llm, fix_prompt, system="You are the ML Engineer. Fix the code precisely.")
@@ -555,6 +574,8 @@ Return ONLY the corrected Python code inside ```python ... ```.
             code_str = m_fix.group(1) if m_fix else fix_resp
 
             with open(model_module_path, "w", encoding="utf-8") as f:
+                f.write(code_str)
+            with open(exp_module_path, "w", encoding="utf-8") as f:
                 f.write(code_str)
 
             self.state["debug_attempts"].append({
@@ -570,14 +591,46 @@ Return ONLY the corrected Python code inside ```python ... ```.
                 message=f"Applied Debug Fix #{debug_attempts}/2 for Exp #{exp_no} after error: {err_msg[:120]}"
             )
 
-            exec_res = await self.runner.execute_script(scaffold_dst, args=cmd_args, verify_oof=True)
+            exec_res = await self.runner.execute_script(scaffold_dst, args=cmd_args, verify_oof=True, oof_file=oof_file)
             exec_status = exec_res.get("status", "FAILED")
             cv_score = exec_res.get("cv_score")
+            fold_scores = exec_res.get("fold_scores", {})
 
         phase_timings["runner_seconds"] = round(asyncio.get_event_loop().time() - runner_start, 2)
         elapsed_total = asyncio.get_event_loop().time() - exp_start_time
         exit_code = exec_res.get("exit_code")
         signal = exec_res.get("signal")
+
+        # Provenance: Compute SHA-256 hashes and Git commit
+        def _calc_sha(path: Path) -> Optional[str]:
+            if not path.is_file():
+                return None
+            h = hashlib.sha256()
+            with open(path, "rb") as f:
+                while chunk := f.read(65536):
+                    h.update(chunk)
+            return h.hexdigest()
+
+        script_sha = _calc_sha(exp_module_path) or _calc_sha(model_module_path)
+        oof_sha = _calc_sha(oof_file)
+        sub_file = self.run_dir / f"submission_exp{exp_no}.csv"
+        sub_sha = _calc_sha(sub_file)
+
+        git_commit = None
+        try:
+            import subprocess
+            git_commit = subprocess.check_output(["git", "rev-parse", "HEAD"]).decode().strip()
+        except Exception:
+            pass
+
+        # Paired fold evaluation vs Exp 0 baseline
+        from src.services.kaggle2.evaluator import compute_paired_verdict
+        exp0_rec = next((e for e in self.state.get("experiments", []) if e.get("exp_no") == 0), None)
+        base_cv = exp0_rec.get("cv_score") if exp0_rec else None
+        base_folds = [exp0_rec["fold_scores"][str(f)] for f in range(5)] if exp0_rec and "fold_scores" in exp0_rec and len(exp0_rec["fold_scores"]) == 5 else None
+
+        exp_folds = [fold_scores.get(str(f), fold_scores.get(f, 0.0)) for f in range(5)] if fold_scores and len(fold_scores) == 5 else None
+        verdict_info = compute_paired_verdict(exp_folds, base_folds) if (exp_folds and base_folds) else None
 
         if exec_status != "PASSED":
             self.record_failure("EXPERIMENT_EXECUTION_FAILURE", f"Experiment #{exp_no} exited with status {exec_status} (exit {exit_code})", exec_res.get("last_stderr") or exec_res.get("error"))
@@ -589,21 +642,40 @@ Return ONLY the corrected Python code inside ```python ... ```.
             "deciding_reason": deciding_reason,
             "code": code_str,
             "cv_score": cv_score,
+            "fold_scores": fold_scores,
+            "verdict_vs_base": verdict_info.get("verdict") if verdict_info else "N/A",
+            "paired_diffs": verdict_info.get("paired_diffs") if verdict_info else [],
             "status": exec_status,
             "exit_code": exit_code,
             "signal": signal,
             "debug_attempts": debug_attempts,
             "phase_timings": phase_timings,
-            "elapsed_seconds": round(elapsed_total, 2)
+            "elapsed_seconds": round(elapsed_total, 2),
+            "script_sha256": script_sha,
+            "oof_sha256": oof_sha,
+            "submission_sha256": sub_sha,
+            "git_commit": git_commit
         })
 
         # ── Step 6: Honest Postmortem & Lesson Generation ──
-        what_ran = f"run_scaffold.py with model_part.py ({phase_timings['runner_seconds']}s, exit {exit_code})"
+        # Integrity Rule: No record, no lesson!
+        if exec_status == "PASSED" and (not oof_sha or not script_sha):
+            logger.error(f"[AgentTeam] Exp #{exp_no} passed execution but lacks OOF or script SHA-256 ('No record, no lesson'). Ingestion aborted.")
+            self._save_state()
+            return {
+                "exp_no": exp_no,
+                "status": "FAILED_RECORD_INTEGRITY",
+                "cv_score": cv_score,
+                "elapsed_seconds": round(elapsed_total, 2)
+            }
+
+        what_ran = f"run_scaffold.py with model_part_exp{exp_no}.py ({phase_timings['runner_seconds']}s, exit {exit_code})"
         log_excerpt = (exec_res.get("last_stderr") or exec_res.get("last_stdout") or "")[:400]
         if cv_score is not None:
-            what_worked = f"Scaffold completed 5-fold CV. Harness-verified CV ROC-AUC: {cv_score:.5f}"
-            what_failed = "None"
-            why_reasoning = f"Harness computed real out-of-fold ROC-AUC {cv_score:.5f} from oof_predictions.parquet"
+            verdict_desc = verdict_info.get("verdict") if verdict_info else "UNVERIFIED"
+            what_worked = f"Scaffold completed 5-fold CV. CV ROC-AUC: {cv_score:.5f} | Verdict vs Exp 0: {verdict_desc}"
+            what_failed = "None" if verdict_desc != "WORSE" else f"Underperformed Exp 0 baseline (Mean diff: {verdict_info.get('mean_diff'):+.5f})"
+            why_reasoning = f"Harness computed real out-of-fold ROC-AUC {cv_score:.5f} from oof_exp{exp_no}.parquet"
             next_steps = "Compare vs baseline and explore ensembling / further feature engineering"
         else:
             what_worked = "Sandbox execution and error capture succeeded"
@@ -612,6 +684,7 @@ Return ONLY the corrected Python code inside ```python ... ```.
             next_steps = "Address the root error in model_part.py or simplify feature pipeline"
 
         lesson_record = await self.lesson_service.create_lesson(
+            run_id=self.run_id,
             exp_no=exp_no,
             hypothesis=strat_resp,
             methodology=what_ran,
@@ -620,7 +693,17 @@ Return ONLY the corrected Python code inside ```python ... ```.
             what_failed=what_failed,
             why_reasoning=why_reasoning,
             next_steps=next_steps,
-            status=exec_status
+            status=exec_status,
+            fold_scores=fold_scores,
+            base_cv_score=base_cv,
+            verdict_info=verdict_info,
+            script_sha256=script_sha,
+            oof_sha256=oof_sha,
+            submission_sha256=sub_sha,
+            git_commit=git_commit,
+            wall_time=phase_timings['runner_seconds'],
+            exit_code=exit_code,
+            signal=signal
         )
         self.state["lessons"].append(lesson_record)
         self._save_state()

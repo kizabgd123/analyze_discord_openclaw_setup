@@ -315,7 +315,9 @@ async def test_f4_debate_revision_passed_to_engineer():
         async def mock_query_notebook(question):
             return {"status": "PASSED", "answer": "Interactions collapse in synthetic data.", "citations": {}}
 
-        async def mock_execute_script(script, args=None, verify_oof=True):
+        async def mock_execute_script(script, args=None, verify_oof=True, **kwargs):
+            oof_f = kwargs.get("oof_file") or (tmp_path / "oof_exp1.parquet")
+            Path(oof_f).write_bytes(b"mock_oof_data_for_sha")
             return {"status": "PASSED", "cv_score": 0.94888, "last_stdout": "Fold 0 done", "last_stderr": "", "exit_code": 0, "signal": None}
 
         with patch("gemini_client.query_llm", side_effect=mock_query_llm), \
@@ -339,3 +341,118 @@ async def test_f4_debate_revision_passed_to_engineer():
             assert len(orch.state["experiments"]) == 1
             assert "code" in orch.state["experiments"][0]
             assert "train_predict" in orch.state["experiments"][0]["code"]
+
+
+def test_f5_paired_verdict_rules():
+    """
+    Tests paired fold differences d_i = auc_exp_i - auc_base_i:
+    - BETTER if mean(d) > 0 and at least 4 of 5 folds improve
+    - WORSE if mean(d) < 0 and at least 4 of 5 folds worsen
+    - Otherwise SAME.
+    """
+    from src.services.kaggle2.evaluator import compute_paired_verdict
+
+    base_folds = [0.94000, 0.94000, 0.94000, 0.94000, 0.94000]
+
+    # 1. 5 improves -> BETTER
+    exp_better = [0.94500, 0.94500, 0.94500, 0.94500, 0.94500]
+    res = compute_paired_verdict(exp_better, base_folds)
+    assert res["verdict"] == "BETTER"
+    assert res["n_improve"] == 5
+    assert res["mean_diff"] == 0.00500
+
+    # 2. 4 improves, 1 equal -> BETTER
+    exp_4_better = [0.94500, 0.94500, 0.94500, 0.94500, 0.94000]
+    res = compute_paired_verdict(exp_4_better, base_folds)
+    assert res["verdict"] == "BETTER"
+    assert res["n_improve"] == 4
+
+    # 3. 3 improves, 2 worsen -> SAME
+    exp_mixed = [0.94500, 0.94500, 0.94500, 0.93500, 0.93500]
+    res = compute_paired_verdict(exp_mixed, base_folds)
+    assert res["verdict"] == "SAME"
+
+    # 4. 4 worsen -> WORSE
+    exp_worse = [0.93500, 0.93500, 0.93500, 0.93500, 0.94000]
+    res = compute_paired_verdict(exp_worse, base_folds)
+    assert res["verdict"] == "WORSE"
+    assert res["n_worsen"] == 4
+    assert res["mean_diff"] == -0.00400
+
+    # 5. All equal -> SAME
+    res = compute_paired_verdict(base_folds, base_folds)
+    assert res["verdict"] == "SAME"
+    assert res["mean_diff"] == 0.0
+
+
+def test_f6_oof_target_encode_no_self_label_leakage_and_static_check():
+    """
+    Tests:
+    1. oof_target_encode helper: proves that flipping a row's own label does not change
+       its own training-time encoding (zero self-leakage).
+    2. check_target_leakage_static: flags naive y.groupby(X[col]).mean() mapped back to X_train.
+    """
+    runner_python = Path("runner_venv/bin/python3").resolve()
+    assert runner_python.is_file(), f"runner_venv python must exist at {runner_python}"
+
+    test_code = """
+import os
+import sys
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import StratifiedKFold
+from src.services.kaggle2.scaffold_runner import oof_target_encode, check_target_leakage_static
+
+# 1. Test Static Checker
+bad_code = \"\"\"
+X_train['cat_te'] = X_train['cat'].map(y_train.groupby(X_train['cat']).mean())
+X_val['cat_te'] = X_val['cat'].map(y_train.groupby(X_train['cat']).mean())
+\"\"\"
+issues = check_target_leakage_static(bad_code)
+assert len(issues) > 0, "Static checker must flag naive whole-train target encoding"
+assert "LEAKAGE_DETECTED" in issues[0]
+
+good_code = \"\"\"
+X_train, X_val, X_test = oof_target_encode(X_train, X_val, ['cat'], y_train, test_df=X_test)
+\"\"\"
+assert check_target_leakage_static(good_code) == [], "Static checker must not flag vetted helper"
+
+# 2. Test OOF Target Encode: Zero Self-Label Leakage
+np.random.seed(42)
+n = 50
+df = pd.DataFrame({
+    'cat': ['A'] * 25 + ['B'] * 25,
+    'val': np.arange(n)
+})
+y_base = pd.Series(np.random.choice([0, 1], size=n, p=[0.7, 0.3]), name='is_fraud')
+
+y_0 = y_base.copy()
+y_0.iloc[0] = 0
+
+y_1 = y_base.copy()
+y_1.iloc[0] = 1
+
+val_df = pd.DataFrame({'cat': ['A', 'B'], 'val': [999, 999]})
+
+enc_0, _, _ = oof_target_encode(df, val_df, ['cat'], y_0, n_splits=5, smoothing=10.0, seed=123)
+enc_1, _, _ = oof_target_encode(df, val_df, ['cat'], y_1, n_splits=5, smoothing=10.0, seed=123)
+
+val_row0_case0 = enc_0.loc[0, 'cat_te']
+val_row0_case1 = enc_1.loc[0, 'cat_te']
+
+assert np.isclose(val_row0_case0, val_row0_case1), (
+    f"Self-leakage detected! Row 0 encoding changed when flipping row 0 label: {val_row0_case0} vs {val_row0_case1}"
+)
+
+print("SUCCESS: Target encoding helper proved free of self-label leakage and static check verified.")
+"""
+
+    res = subprocess.run(
+        [str(runner_python), "-c", test_code],
+        env={"PYTHONPATH": os.getcwd(), "PATH": os.environ["PATH"]},
+        capture_output=True,
+        text=True
+    )
+    assert res.returncode == 0, f"Subprocess failed:\nstdout:\n{res.stdout}\nstderr:\n{res.stderr}"
+    assert "SUCCESS: Target encoding helper proved free of self-label leakage and static check verified." in res.stdout
+

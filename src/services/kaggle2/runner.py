@@ -55,7 +55,8 @@ class LocalRunner:
         self,
         script_path: Path,
         args: Optional[List[str]] = None,
-        verify_oof: bool = True
+        verify_oof: bool = True,
+        oof_file: Optional[Path] = None
     ) -> Dict[str, Any]:
         """
         Executes a Python script in a detached process group inside Firejail sandbox.
@@ -241,7 +242,7 @@ class LocalRunner:
             # Score Integrity: Evaluator runs outside sandbox, validates OOF predictions artifact,
             # verifies fold isolation (leakage check), and computes ground-truth ROC AUC deterministically.
             # STDOUT IS COMPLETELY IGNORED FOR SCORING.
-            eval_res = await self._evaluate_oof_harness()
+            eval_res = await self._evaluate_oof_harness(oof_file=oof_file)
             if eval_res.get("status") != "PASSED":
                 harness_err = eval_res.get("error", "ScoreIntegrityError: OOF predictions verification failed")
                 stdout_errs = [l.strip() for l in stdout_lines if any(k in l.lower() for k in ("error", "exception", "failed", "not found"))]
@@ -291,7 +292,7 @@ class LocalRunner:
             self.current_process = None
             self.current_pid = None
 
-    async def _evaluate_oof_harness(self) -> Dict[str, Any]:
+    async def _evaluate_oof_harness(self, oof_file: Optional[Path] = None) -> Dict[str, Any]:
         """
         Executes the fixed out-of-sandbox evaluation harness using runner_venv python.
         Validates OOF predictions, checks fold isolation, and computes ROC AUC directly.
@@ -311,6 +312,8 @@ class LocalRunner:
         ]
         if self.folds_file and Path(self.folds_file).is_file():
             cmd.extend(["--folds-file", str(self.folds_file)])
+        if oof_file:
+            cmd.extend(["--oof-file", str(oof_file)])
 
         try:
             proc = await asyncio.create_subprocess_exec(

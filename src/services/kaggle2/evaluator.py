@@ -19,7 +19,7 @@ import json
 import argparse
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 
 logger = logging.getLogger("Kaggle2.Evaluator")
@@ -79,6 +79,7 @@ def evaluate_oof_predictions(
     run_dir: Path,
     data_dir: Path,
     folds_file: Optional[Path] = None,
+    oof_file: Optional[Path] = None,
     target_col: str = "is_fraud",
     id_col: str = "id"
 ) -> Dict[str, Any]:
@@ -92,40 +93,35 @@ def evaluate_oof_predictions(
     data_dir = Path(data_dir)
 
     # 1. Locate OOF predictions artifact
-    oof_parquet = run_dir / "oof_predictions.parquet"
-    oof_csv = run_dir / "oof_predictions.csv"
-
-    if oof_parquet.is_file():
-        oof_path = oof_parquet
-        try:
-            oof_df = pd.read_parquet(oof_path)
-        except Exception as e:
-            return {
-                "status": "FAILED",
-                "cv_score": None,
-                "fold_scores": {},
-                "total_samples": 0,
-                "error": f"ScoreIntegrityError: Failed parsing oof_predictions.parquet: {e}"
-            }
-    elif oof_csv.is_file():
-        oof_path = oof_csv
-        try:
-            oof_df = pd.read_csv(oof_path)
-        except Exception as e:
-            return {
-                "status": "FAILED",
-                "cv_score": None,
-                "fold_scores": {},
-                "total_samples": 0,
-                "error": f"ScoreIntegrityError: Failed parsing oof_predictions.csv: {e}"
-            }
+    if oof_file and Path(oof_file).is_file():
+        oof_path = Path(oof_file)
+    elif oof_file and (run_dir / Path(oof_file).name).is_file():
+        oof_path = run_dir / Path(oof_file).name
+    elif (run_dir / "oof_predictions.parquet").is_file():
+        oof_path = run_dir / "oof_predictions.parquet"
+    elif (run_dir / "oof_predictions.csv").is_file():
+        oof_path = run_dir / "oof_predictions.csv"
     else:
         return {
             "status": "FAILED",
             "cv_score": None,
             "fold_scores": {},
             "total_samples": 0,
-            "error": "ScoreIntegrityError: Missing out-of-fold predictions file (oof_predictions.parquet or oof_predictions.csv) in run folder"
+            "error": f"ScoreIntegrityError: Missing out-of-fold predictions file ({oof_file or 'oof_predictions.parquet'}) in run folder"
+        }
+
+    try:
+        if str(oof_path).endswith(".parquet"):
+            oof_df = pd.read_parquet(oof_path)
+        else:
+            oof_df = pd.read_csv(oof_path)
+    except Exception as e:
+        return {
+            "status": "FAILED",
+            "cv_score": None,
+            "fold_scores": {},
+            "total_samples": 0,
+            "error": f"ScoreIntegrityError: Failed parsing OOF predictions ({oof_path.name}): {e}"
         }
 
     # 2. Locate frozen folds file
@@ -352,6 +348,47 @@ def evaluate_oof_predictions(
     }
 
 
+def compute_paired_verdict(
+    exp_fold_aucs: List[float],
+    base_fold_aucs: List[float]
+) -> Dict[str, Any]:
+    """
+    Computes statistical paired verdict between an experiment and the Exp 0 baseline:
+    d_i = auc_exp_i - auc_base_i
+    - BETTER if mean(d) > 0 and at least 4 of 5 folds improve (d_i > 0)
+    - WORSE if mean(d) < 0 and at least 4 of 5 folds worsen (d_i < 0)
+    - Otherwise SAME.
+    """
+    if len(exp_fold_aucs) != len(base_fold_aucs) or len(exp_fold_aucs) == 0:
+        return {
+            "verdict": "UNKNOWN",
+            "paired_diffs": [],
+            "mean_diff": 0.0,
+            "n_improve": 0,
+            "n_worsen": 0
+        }
+
+    paired_diffs = [round(float(e) - float(b), 5) for e, b in zip(exp_fold_aucs, base_fold_aucs)]
+    mean_diff = round(sum(paired_diffs) / float(len(paired_diffs)), 5)
+    n_improve = sum(1 for d in paired_diffs if d > 0)
+    n_worsen = sum(1 for d in paired_diffs if d < 0)
+
+    if mean_diff > 0 and n_improve >= 4:
+        verdict = "BETTER"
+    elif mean_diff < 0 and n_worsen >= 4:
+        verdict = "WORSE"
+    else:
+        verdict = "SAME"
+
+    return {
+        "verdict": verdict,
+        "paired_diffs": paired_diffs,
+        "mean_diff": mean_diff,
+        "n_improve": n_improve,
+        "n_worsen": n_worsen
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Kaggle2 Fixed OOF Evaluator Harness")
     subparsers = parser.add_subparsers(dest="action", required=True)
@@ -368,6 +405,7 @@ def main():
     eval_parser.add_argument("--run-dir", required=True, type=str)
     eval_parser.add_argument("--data-dir", required=True, type=str)
     eval_parser.add_argument("--folds-file", default=None, type=str)
+    eval_parser.add_argument("--oof-file", default=None, type=str)
 
     args = parser.parse_args()
 
@@ -383,7 +421,8 @@ def main():
         res = evaluate_oof_predictions(
             run_dir=Path(args.run_dir),
             data_dir=Path(args.data_dir),
-            folds_file=Path(args.folds_file) if args.folds_file else None
+            folds_file=Path(args.folds_file) if args.folds_file else None,
+            oof_file=Path(args.oof_file) if args.oof_file else None
         )
         print(json.dumps(res))
 
