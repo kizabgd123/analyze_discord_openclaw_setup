@@ -690,7 +690,14 @@ async def on_ready():
     # Sinhronizacija Slash komandi sa Discord Gateway-om
     try:
         synced = await bot.tree.sync()
-        logger.info(f"⚡ Sinhronizovano {len(synced)} Slash komandi (Application Commands)!")
+        logger.info(f"⚡ Sinhronizovano {len(synced)} Globalnih Slash komandi (Application Commands)!")
+        for guild in bot.guilds:
+            try:
+                bot.tree.copy_global_to(guild=guild)
+                synced_guild = await bot.tree.sync(guild=guild)
+                logger.info(f"⚡ Sinhronizovano {len(synced_guild)} komandi za server: {guild.name} ({guild.id})")
+            except Exception as ge:
+                logger.warning(f"Greška pri sync-u za server {guild.name}: {ge}")
     except Exception as e:
         logger.error(f"Greška pri sinhronizaciji slash komandi: {e}")
 
@@ -1433,6 +1440,41 @@ async def debate_setnotebook_slash(interaction: discord.Interaction, persona: st
         )
 
 bot.tree.add_command(debate_group)
+
+# ── 9C. KAGGLE COMPETITION WORKFLOW (/kaggle) ──
+kaggle_group = app_commands.Group(
+    name="kaggle",
+    description="🏆 Kaggle Competition Workflow (Admin Only)"
+)
+
+@kaggle_group.command(
+    name="start",
+    description="🚀 Pokreni grounded Kaggle takmičarski workflow (Admin Only)"
+)
+@app_commands.describe(
+    competition="Naziv/slug takmičenja na Kaggle (npr. name-that-llm)"
+)
+async def kaggle_start_slash(interaction: discord.Interaction, competition: str):
+    from src.controllers.kaggle_controller import kaggle_controller
+    await kaggle_controller.handle_kaggle_start(interaction, competition)
+
+bot.tree.add_command(kaggle_group)
+
+@bot.group(name="kaggle", invoke_without_command=True)
+async def kaggle_prefix_group(ctx):
+    embed = discord.Embed(
+        title="🏆 Kaggle Workflow Komande (Admin Only)",
+        description="Dostupne komande za Kaggle:\n"
+                    "• `!kaggle start <competition>` — Pokreni grounded debatu i workflow za takmičenje\n"
+                    "• `/kaggle start <competition>` — Slash verzija",
+        color=0x20BEFF
+    )
+    await ctx.send(embed=embed)
+
+@kaggle_prefix_group.command(name="start")
+async def kaggle_start_prefix(ctx, competition: str):
+    from src.controllers.kaggle_controller import kaggle_controller
+    await kaggle_controller.handle_kaggle_start_prefix(ctx, competition)
 
 # ── 10. PREFIX COMMANDS COMPATIBILITY (ZA `!` PREFIKS) ──
 

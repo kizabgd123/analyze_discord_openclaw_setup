@@ -11,6 +11,7 @@ Enforces the Zero-Mock / Zero-Simulation policy:
 
 import os
 import sys
+import re
 import json
 import asyncio
 import logging
@@ -69,11 +70,36 @@ class A2ToolsRuntime:
                 logger.warning(f"Could not read ~/.nlm/env: {e}")
         return env
 
+    async def list_notebook_sources(
+        self, notebook_id: str, timeout: float = 30.0
+    ) -> List[Dict[str, Any]]:
+        """Lists sources registered within a Google NotebookLM notebook."""
+        cmd = [self.nlm_bin, "list", "sources", notebook_id, "--json"]
+        env = self._get_nlm_env()
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env,
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            out_str = stdout.decode("utf-8", errors="replace").strip()
+            # Match JSON array
+            match = re.search(r"\[.*\]", out_str, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+            return []
+        except Exception as exc:
+            logger.error(f"Failed to list notebook sources for {notebook_id}: {exc}")
+            return []
+
     async def query_notebooklm(
         self,
         notebook_id: str,
         query: str,
         timeout: float = 120.0,
+        source_ids: Optional[List[str]] = None,
     ) -> ToolExecutionResult:
         """Executes a real Google NotebookLM grounded query via `nlm` CLI.
 
@@ -98,6 +124,8 @@ class A2ToolsRuntime:
             )
 
         cmd = [self.nlm_bin, "notebook", "query", notebook_id, query]
+        if source_ids:
+            cmd.extend(["--source-ids", ",".join(source_ids)])
         env = self._get_nlm_env()
 
         try:
@@ -141,6 +169,46 @@ class A2ToolsRuntime:
                 logger.error(
                     f"NotebookLM ({notebook_id}) upit nije uspeo: {err_msg}"
                 )
+
+                # Automatic failover if quota/rate limit is hit on the active profile
+                if "usage limit was reached" in err_msg or "temporarily rejected" in err_msg:
+                    fallback_profiles = ["lifemysolver@gmail.com", "kiza101288"]
+                    for fb_prof in fallback_profiles:
+                        logger.warning(
+                            f"NLM quota reached on default profile. Attempting failover to profile '{fb_prof}'..."
+                        )
+                        fb_cmd = list(cmd) + ["--profile", fb_prof]
+                        try:
+                            fb_proc = await asyncio.create_subprocess_exec(
+                                *fb_cmd,
+                                stdout=asyncio.subprocess.PIPE,
+                                stderr=asyncio.subprocess.PIPE,
+                                env=env,
+                            )
+                            fb_out, fb_err = await asyncio.wait_for(
+                                fb_proc.communicate(), timeout=timeout
+                            )
+                            fb_out_str = fb_out.decode("utf-8", errors="replace").strip()
+                            if fb_proc.returncode == 0 and fb_out_str:
+                                clean_lines = [
+                                    l for l in fb_out_str.splitlines()
+                                    if not l.startswith("📊") and not l.startswith("🔔 Update")
+                                ]
+                                clean_output = "\n".join(clean_lines).strip()
+                                if clean_output:
+                                    logger.info(f"NLM failover to profile '{fb_prof}' SUCCEEDED!")
+                                    return ToolExecutionResult(
+                                        success=True,
+                                        output=clean_output,
+                                        metadata={
+                                            "notebook_id": notebook_id,
+                                            "query": query,
+                                            "profile": fb_prof,
+                                        },
+                                    )
+                        except Exception as fb_exc:
+                            logger.warning(f"Failover to '{fb_prof}' failed: {fb_exc}")
+
                 return ToolExecutionResult(
                     success=False,
                     output=f"GREŠKA: Nije moguće dohvatiti NotebookLM ({notebook_id}): {err_msg}",
@@ -224,6 +292,57 @@ class A2ToolsRuntime:
                 success=False,
                 output=f"GREŠKA: Greška pri izvršavanju komande: {exc}",
                 error_type="execution_exception",
+                is_error=True,
+            )
+
+    async def get_kaggle_context(
+        self, competition: str, timeout: float = 60.0
+    ) -> ToolExecutionResult:
+        """Fetches grounded Kaggle competition telemetry via KaggleService.
+
+        CRITICAL RULE:
+        If Kaggle CLI cannot be executed or returns an error, returns an explicit error
+        without local guessing.
+        """
+        from src.services.kaggle_service import kaggle_service, KaggleCLIError
+
+        try:
+            comp = kaggle_service.validate_slug(competition)
+            ctx = await kaggle_service.get_competition_context(comp, timeout=timeout)
+            return ToolExecutionResult(
+                success=True,
+                output=ctx.summary_markdown,
+                metadata={
+                    "competition": ctx.competition,
+                    "total_submissions": ctx.total_submissions,
+                    "best_score": ctx.best_score,
+                    "best_date": ctx.best_date,
+                    "latest_score": ctx.latest_score,
+                    "latest_date": ctx.latest_date,
+                    "remaining_today": ctx.remaining_today,
+                },
+            )
+        except ValueError as val_err:
+            return ToolExecutionResult(
+                success=False,
+                output=f"GREŠKA: Nevalidan format naziva takmičenja: {val_err}",
+                error_type="validation_error",
+                is_error=True,
+            )
+        except KaggleCLIError as cli_err:
+            logger.error(f"Kaggle context fetch failed: {cli_err}")
+            return ToolExecutionResult(
+                success=False,
+                output=f"GREŠKA: Kaggle CLI poziv nije uspeo: {cli_err}",
+                error_type="kaggle_cli_error",
+                is_error=True,
+            )
+        except Exception as exc:
+            logger.exception("Sistemska greška pri dohvatanju Kaggle konteksta")
+            return ToolExecutionResult(
+                success=False,
+                output=f"GREŠKA: Izuzetak pri dohvatanju Kaggle konteksta: {exc}",
+                error_type="system_exception",
                 is_error=True,
             )
 

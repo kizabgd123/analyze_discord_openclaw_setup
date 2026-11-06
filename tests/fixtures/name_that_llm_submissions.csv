@@ -1,0 +1,14 @@
+Warning: Looks like you're using an outdated `kaggle` version (installed: 2.2.4), please consider upgrading to the latest version (2.2.5)
+ref,fileName,date,description,status,publicScore,privateScore
+57959190,submission.parquet,2026-11-03 19:55:20.457000,,SubmissionStatus.COMPLETE,0.348,
+57452137,submission.parquet,2026-10-20 20:19:13.757000,,SubmissionStatus.COMPLETE,0.603,
+57451176,submission.parquet,2026-10-20 19:37:11.117000,,SubmissionStatus.COMPLETE,0.604,
+57351637,submission.parquet,2026-10-18 11:07:18.257000,,SubmissionStatus.COMPLETE,0.559,
+57350623,submission.parquet,2026-10-18 10:34:26.687000,,SubmissionStatus.COMPLETE,0.552,
+57272657,submission.parquet,2026-10-16 14:42:24.940000,,SubmissionStatus.COMPLETE,0.541,
+57271492,submission.parquet,2026-10-16 14:02:15.463000,,SubmissionStatus.COMPLETE,0.530,
+57236100,submission.parquet,2026-10-15 15:40:59.077000,Sub5: Apex SOTA Quintuple Ensemble (Qwen3 8B+14B + UltraBERT + DeBERTa + SVM),SubmissionStatus.COMPLETE,0.505,
+57235899,submission.parquet,2026-10-15 15:34:12.310000,Sub4: Qwen3 Dual Fusion (8B+14B+DeBERTa+SVM SOTA 0.490),SubmissionStatus.COMPLETE,0.490,
+57235450,submission.parquet,2026-10-15 15:21:15.913000,Sub3: Apex GM Hierarchical Blend (UltraBERT + Stylometric SVM/LR),SubmissionStatus.COMPLETE,0.395,
+57235412,submission.parquet,2026-10-15 15:20:12.393000,Sub2: UltraBERT 5-Fold Deep Transformer Classifier (OOF: 0.408),SubmissionStatus.COMPLETE,0.392,
+57235400,submission.parquet,2026-10-15 15:19:47.387000,Sub1: Fast Stylometric & Token Baseline (CV: 0.3300),SubmissionStatus.COMPLETE,0.332,
