@@ -14,7 +14,9 @@ Enforces:
 
 import os
 import sys
+import re
 import json
+import shutil
 import logging
 import asyncio
 import subprocess
@@ -52,13 +54,20 @@ class AgentTeamOrchestrator:
         self.is_running: bool = False
         self.is_paused: bool = False
         self.current_experiment: int = 0
+        self.exp_nlm_queries: int = 0
+        self.exp_nlm_time: float = 0.0
         self.state: Dict[str, Any] = self._load_or_create_state()
 
     def _load_or_create_state(self) -> Dict[str, Any]:
         if self.state_file.exists():
             try:
                 with open(self.state_file, "r", encoding="utf-8") as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    if "blocked_hypotheses" not in data:
+                        data["blocked_hypotheses"] = []
+                    if "debug_attempts" not in data:
+                        data["debug_attempts"] = []
+                    return data
             except Exception as e:
                 logger.warning(f"Error loading state from {self.state_file}: {e}")
 
@@ -73,6 +82,8 @@ class AgentTeamOrchestrator:
             "transcript": [],
             "nlm_queries": [],
             "experiments": [],
+            "blocked_hypotheses": [],
+            "debug_attempts": [],
             "lessons": [],
             "submissions": []
         }
@@ -131,21 +142,38 @@ class AgentTeamOrchestrator:
                     logger.error(f"[Skeptic] Error generating frozen folds: {exc}")
                     self.record_failure("FOLD_FREEZE_ERROR", "Failed freezing CV folds", str(exc))
 
-    async def ask_notebook(self, agent_name: str, question: str) -> Dict[str, Any]:
-        """Available to EVERY agent in EVERY turn with verbatim logging."""
-        logger.info(f"[{agent_name} -> NotebookLM] {question}")
+    async def ask_notebook(self, agent_name: str, question: str, reason: str = "general") -> Dict[str, Any]:
+        """Available to EVERY agent in EVERY turn with verbatim logging, budget control and latency tracking."""
+        if self.exp_nlm_queries >= 4:
+            logger.warning(f"[NotebookLM Budget] Query cap reached (4 max) for Exp #{self.current_experiment}. Skipping '{question}'")
+            return {"status": "SKIPPED", "answer": None, "error": "Query budget reached (4 per experiment limit)"}
+
+        if self.exp_nlm_time >= 300.0:
+            logger.warning(f"[NotebookLM Budget] Time cap reached (5 min max) for Exp #{self.current_experiment}. Skipping '{question}'")
+            return {"status": "SKIPPED", "answer": None, "error": "Query time budget reached (300s cumulative limit)"}
+
+        start_t = asyncio.get_event_loop().time()
+        logger.info(f"[{agent_name} -> NotebookLM] ({reason}) {question}")
         res = await self.notebook_client.query_notebook(question)
+        latency = asyncio.get_event_loop().time() - start_t
+
+        self.exp_nlm_queries += 1
+        self.exp_nlm_time += latency
+
         self.state["nlm_queries"].append({
+            "exp_no": self.current_experiment,
             "agent": agent_name,
+            "reason": reason,
             "question": question,
             "answer": res.get("answer"),
             "citations": res.get("citations", {}),
             "status": res.get("status"),
             "error": res.get("error"),
+            "latency_seconds": round(latency, 2),
             "timestamp": datetime.now(timezone.utc).isoformat()
         })
         if res.get("status") == "FAILED":
-            self.record_failure("NOTEBOOKLM_QUERY_FAILED", f"Query by {agent_name} failed", res.get("error"))
+            self.record_failure("NOTEBOOKLM_QUERY_FAILED", f"Query by {agent_name} failed: {question[:60]}", res.get("error"))
 
         self._save_state()
         return res
@@ -173,14 +201,14 @@ class AgentTeamOrchestrator:
 
     async def execute_pre_planning_lesson_query(self) -> Dict[str, Any]:
         """Queries the notebook for past lessons before planning a new experiment."""
-        q = "What worked and what failed in our previous experiments for S6E11, and what are the key takeaways?"
+        q = "BRIEF: What worked, what failed, and what was harness-verified in previous S6E11 experiments?"
         self.append_transcript(
             agent="Strategist",
             role="Strategist",
             message=f"Consulting research assistant for past lessons: '{q}'",
             is_lesson_query=True
         )
-        res = await self.ask_notebook("Strategist", q)
+        res = await self.ask_notebook("Strategist", q, reason="lessons_review")
         ans = res.get("answer") or f"NLM query failed: {res.get('error')}"
         self.append_transcript(
             agent="Research Assistant",
@@ -200,14 +228,17 @@ class AgentTeamOrchestrator:
 
     async def run_single_experiment(self, exp_no: int, timeout_seconds: int = 1200) -> Dict[str, Any]:
         """
-        Executes one full experiment round:
+        Executes one full experiment round with Debate with Teeth and Debug Loop:
           1. Pre-planning lesson query to NotebookLM.
-          2. Strategist plans hypothesis & queries NotebookLM for techniques.
-          3. Skeptic audits proposal against leakage, frozen folds, and competition rules.
-          4. Engineer produces self-contained Python script.
-          5. LocalRunner executes script inside run folder (with hard timeout).
-          6. Real CV ROC-AUC is measured and verified.
-          7. Lesson is written and ingested into NotebookLM as a new source.
+          2. Strategist formulates dynamic question to NotebookLM & plans hypothesis (filtering past blocked/tested).
+          3. Skeptic audits with fact-check query and structured verdict (BLOCK / PROCEED_WITH_CONDITIONS / PROCEED).
+          4. Debate resolution: On BLOCK, Strategist answers point-by-point, Skeptic renders final verdict.
+             If still BLOCKED, Engineer does NOT run, and BLOCKED state is recorded.
+          5. Engineer produces model_part.py against fixed Scaffold contract with minimal example.
+          6. Scaffold runner executes 5-fold CV inside Firejail sandbox.
+          7. Debug Loop: If execution fails, up to 2 fix attempts with raw stderr/stdout feedback.
+          8. Harness evaluates OOF predictions outside sandbox deterministically.
+          9. Honest lesson generated and recorded.
         """
         import re
         from gemini_client import query_llm
@@ -217,94 +248,355 @@ class AgentTeamOrchestrator:
 
         logger.info(f"[AgentTeam] Starting Experiment #{exp_no}...")
         self.current_experiment = exp_no
+        self.exp_nlm_queries = 0
+        self.exp_nlm_time = 0.0
+        exp_start_time = asyncio.get_event_loop().time()
+        phase_timings = {"nlm_seconds": 0.0, "runner_seconds": 0.0}
 
         # ── Step 1: Pre-planning lesson query ──
+        nlm_t0 = asyncio.get_event_loop().time()
         await self.execute_pre_planning_lesson_query()
+        phase_timings["nlm_seconds"] += round(asyncio.get_event_loop().time() - nlm_t0, 2)
         if not self.is_running:
             return {"status": "STOPPED"}
 
         # ── Step 2: Strategist planning & NotebookLM inquiry ──
-        tech_q = f"For Kaggle Playground S6E11, what specific model parameters and feature engineering are recommended for Experiment #{exp_no}?"
-        tech_res = await self.ask_notebook("Strategist", tech_q)
-        tech_ans = tech_res.get("answer") or "Standard GBDT with frequency encoding"
+        past_hyps = [e.get("hypothesis", "") for e in self.state.get("experiments", [])]
+        blocked_hyps = self.state.get("blocked_hypotheses", [])
+
+        # Strategist formulates a question dynamically
+        strat_q_prompt = (
+            f"You are the ML Strategist for Kaggle S6E11 (credit card fraud, ROC-AUC). "
+            f"Previous experiments: {json.dumps(past_hyps[-2:])}. "
+            f"Blocked ideas: {json.dumps(blocked_hyps[-2:])}. "
+            f"Formulate ONE specific research question to ask the notebook assistant for Experiment #{exp_no}. "
+            f"Prefix it with BRIEF:, DEEP:, or CHECK:."
+        )
+        raw_strat_q = await asyncio.to_thread(query_llm, strat_q_prompt, system="Formulate only the question string.")
+        strat_q = raw_strat_q.strip().splitlines()[0].strip('"').strip("'") if raw_strat_q else ""
+        if not any(strat_q.startswith(p) for p in ("BRIEF:", "DEEP:", "CHECK:")):
+            strat_q = f"BRIEF: {strat_q}" if strat_q else "BRIEF: What model families and feature encodings perform best for fraud detection?"
+
+        nlm_t0 = asyncio.get_event_loop().time()
+        tech_res = await self.ask_notebook("Strategist", strat_q, reason="strategist_technique_search")
+        phase_timings["nlm_seconds"] += round(asyncio.get_event_loop().time() - nlm_t0, 2)
+        tech_ans = tech_res.get("answer") or "Standard GBDT with categorical frequency encoding"
 
         strat_prompt = (
-            f"You are the Strategist. Based on NotebookLM research below, propose a concrete, testable hypothesis "
+            f"You are the Strategist. Based on research below, propose a concrete, testable hypothesis "
             f"for Experiment #{exp_no} predicting credit card fraud (metric: ROC-AUC).\n\n"
+            f"DO NOT propose any idea already tested or blocked:\n"
+            f"Past Tested: {json.dumps(past_hyps)}\n"
+            f"Past Blocked: {json.dumps(blocked_hyps)}\n\n"
             f"Research Insights:\n{tech_ans[:1000]}\n\n"
-            f"State: 1. Hypothesis; 2. Feature engineering; 3. Model family; 4. Expected impact."
+            f"Structure your proposal as:\n"
+            f"HYPOTHESIS: <clear testable statement>\n"
+            f"FEATURE_ENGINEERING: <specific transformations>\n"
+            f"MODEL_FAMILY: <e.g. LightGBM, CatBoost, or XGBoost>\n"
+            f"EXPECTED_IMPACT: <expected ROC-AUC impact>"
         )
         strat_resp = await asyncio.to_thread(query_llm, strat_prompt, system="You are the ML Strategist. Ground every claim in facts. Do not write code.")
         self.append_transcript(agent="Strategist", role="Strategist", message=strat_resp)
         if not self.is_running:
             return {"status": "STOPPED"}
 
-        # ── Step 3: Skeptic Audit ──
+        # ── Step 3: Skeptic Audit (Debate with Teeth) ──
+        # Skeptic queries NotebookLM to fact check key claims
+        skep_check_q = f"CHECK: What evidence in competition notes or literature supports or contradicts: '{strat_resp[:120]}'?"
+        nlm_t0 = asyncio.get_event_loop().time()
+        skep_check_res = await self.ask_notebook("Skeptic", skep_check_q, reason="skeptic_fact_check")
+        phase_timings["nlm_seconds"] += round(asyncio.get_event_loop().time() - nlm_t0, 2)
+        skep_check_ans = skep_check_res.get("answer") or ""
+
         skep_prompt = (
             f"You are the Skeptic. Review the Strategist's proposal for Experiment #{exp_no}:\n{strat_resp}\n\n"
-            f"Audit checklist:\n"
-            f"1. Is the metric strictly ROC-AUC? (Yes/No)\n"
-            f"2. Does it use the frozen 5-fold StratifiedKFold without target leakage? (Yes/No)\n"
-            f"3. Does it comply with external data and code sharing rules? (Yes/No)\n"
-            f"4. Potential failure modes and decision."
+            f"NotebookLM Fact Check:\n{skep_check_ans[:600]}\n\n"
+            f"Audit Rules:\n"
+            f"- Metric must strictly be ROC-AUC.\n"
+            f"- Must preserve the frozen 5-fold StratifiedKFold without target leakage across fold boundaries.\n"
+            f"- Synthetic data competition rules: External data and pre-trained models are restricted.\n"
+            f"- Every BLOCK verdict MUST name one concrete reason from this list:\n"
+            f"  1. Rule violation (quote rule)\n"
+            f"  2. CV/leakage flaw in the fold protocol\n"
+            f"  3. Code that cannot run in the sandbox\n"
+            f"  4. A claim the notebook contradicts (quote source)\n"
+            f"- Doubts like 'I think it might overfit' are NOT valid BLOCK reasons; they become PROCEED_WITH_CONDITIONS with a concrete test.\n\n"
+            f"Format strictly as:\n"
+            f"VERDICT: [BLOCK | PROCEED_WITH_CONDITIONS | PROCEED]\n"
+            f"REASON: <specific justification>"
         )
-        skep_resp = await asyncio.to_thread(query_llm, skep_prompt, system="You are the ML Skeptic. Rigorously hunt data leakage, misread metrics, and overconfidence.")
+        skep_resp = await asyncio.to_thread(query_llm, skep_prompt, system="You are the ML Skeptic. Enforce strict leakage and rule integrity.")
         self.append_transcript(agent="Skeptic", role="Skeptic", message=skep_resp)
         if not self.is_running:
             return {"status": "STOPPED"}
 
-        # ── Step 4: Engineer code generation ──
-        eng_prompt = (
-            f"You are the ML Engineer. Write a complete, runnable Python script for Experiment #{exp_no}.\n"
-            f"Requirements:\n"
-            f"- Load training data from 'artifacts/kaggle/s6e11/data/train.csv'.\n"
-            f"- Load frozen fold split from 'folds.json' in current working directory, or recreate StratifiedKFold(n_splits=5, shuffle=True, random_state=42).\n"
-            f"- Calculate Out-of-Fold predictions and compute ROC-AUC using sklearn.metrics.roc_auc_score.\n"
-            f"- Print 'CV_ROC_AUC: <score>' clearly to stdout so the runner can extract it.\n"
-            f"- Keep execution fast (<10 mins).\n"
-            f"- Return ONLY runnable Python code inside ```python ... ```."
+        def _parse_verdict(text: str) -> str:
+            m = re.search(r"(?:FINAL_)?VERDICT:\s*(BLOCK|PROCEED_WITH_CONDITIONS|PROCEED)", text, re.IGNORECASE)
+            if m:
+                return m.group(1).upper()
+            upper = text.upper()
+            if "BLOCK" in upper[:40] or upper.startswith("BLOCK"):
+                return "BLOCK"
+            if "CONDITION" in upper[:80]:
+                return "PROCEED_WITH_CONDITIONS"
+            return "PROCEED"
+
+        def _parse_reason(text: str) -> str:
+            m = re.search(r"(?:DECIDING_REASON|FINAL_REASON|REASON):\s*(.*)", text, re.IGNORECASE)
+            if m:
+                return m.group(1).strip()
+            lines = [l.strip() for l in text.strip().splitlines() if l.strip()]
+            return lines[-1] if lines else "Debate consensus"
+
+        initial_verdict = _parse_verdict(skep_resp)
+        final_verdict = initial_verdict
+        deciding_reason = _parse_reason(skep_resp)
+
+        # ── Turn Sequence: Rebuttal & Final Decision ──
+        if initial_verdict == "BLOCK":
+            # Turn 3: Strategist answers point by point
+            rebut_prompt = (
+                f"The Skeptic BLOCKED your proposal for Experiment #{exp_no} with reason:\n{skep_resp}\n\n"
+                f"Respond point by point. Either accept the critique and revise your proposal, or rebut with concrete evidence."
+            )
+            rebut_resp = await asyncio.to_thread(query_llm, rebut_prompt, system="You are the Strategist. Rebut or revise.")
+            self.append_transcript(agent="Strategist", role="Strategist", message=rebut_resp)
+
+            # Turn 4: Skeptic final verdict
+            final_skep_prompt = (
+                f"Review the Strategist's rebuttal for Experiment #{exp_no}:\n{rebut_resp}\n\n"
+                f"Render your FINAL VERDICT:\n"
+                f"FINAL_VERDICT: [BLOCK | PROCEED_WITH_CONDITIONS | PROCEED]\n"
+                f"FINAL_REASON: <specific justification>"
+            )
+            final_skep_resp = await asyncio.to_thread(query_llm, final_skep_prompt, system="You are the Skeptic. Render final verdict.")
+            self.append_transcript(agent="Skeptic", role="Skeptic", message=final_skep_resp)
+            final_verdict = _parse_verdict(final_skep_resp)
+            deciding_reason = _parse_reason(final_skep_resp)
+
+        # Turn 5: Strategist states decision and deciding reason
+        strat_dec_prompt = (
+            f"The Skeptic rendered final verdict: {final_verdict} (Reason: {deciding_reason}).\n"
+            f"State your formal decision and deciding reason:\n"
+            f"DECISION: {'BLOCKED' if final_verdict == 'BLOCK' else 'PROCEED'}\n"
+            f"DECIDING_REASON: <concise summary>"
         )
-        eng_code_raw = await asyncio.to_thread(query_llm, eng_prompt, system="You are the ML Engineer. Write clean, complete, standalone Python code.")
-        
-        # Extract code from markdown block
+        strat_dec_resp = await asyncio.to_thread(query_llm, strat_dec_prompt, system="You are the Strategist. State final decision.")
+        self.append_transcript(agent="Strategist", role="Strategist", message=strat_dec_resp)
+        deciding_reason = _parse_reason(strat_dec_resp) or deciding_reason
+
+        # ── Enforcement: On BLOCK, Engineer does NOT start ──
+        if final_verdict == "BLOCK":
+            logger.warning(f"[AgentTeam] Experiment #{exp_no} BLOCKED by Skeptic. Skipping Engineer.")
+            self.state["blocked_hypotheses"].append(strat_resp[:200])
+            self.record_failure("EXPERIMENT_BLOCKED", f"Experiment #{exp_no} BLOCKED by Skeptic", deciding_reason)
+
+            elapsed = asyncio.get_event_loop().time() - exp_start_time
+            self.state["experiments"].append({
+                "exp_no": exp_no,
+                "hypothesis": strat_resp[:160] + "...",
+                "skeptic_verdict": "BLOCK",
+                "deciding_reason": deciding_reason,
+                "cv_score": None,
+                "status": "BLOCKED",
+                "exit_code": None,
+                "signal": None,
+                "debug_attempts": 0,
+                "phase_timings": phase_timings,
+                "elapsed_seconds": round(elapsed, 2)
+            })
+
+            lesson_record = await self.lesson_service.create_lesson(
+                exp_no=exp_no,
+                hypothesis=strat_resp,
+                methodology="NOT RUN — Blocked during debate stage",
+                cv_score=None,
+                what_worked="Debate gate caught invalid proposal before wasting compute",
+                what_failed=f"Blocked due to: {deciding_reason}",
+                why_reasoning="Hypothesis violated competition constraints or literature consistency",
+                next_steps="Reformulate hypothesis to comply with frozen fold protocol and sandbox limits",
+                status="BLOCKED"
+            )
+            self.state["lessons"].append(lesson_record)
+            self._save_state()
+            return {
+                "exp_no": exp_no,
+                "status": "BLOCKED",
+                "cv_score": None,
+                "elapsed_seconds": round(elapsed, 2),
+                "lesson_file": lesson_record.get("file_path")
+            }
+
+        # ── Step 4: Engineer code generation (Scaffold Contract) ──
+        eng_prompt = f"""You are the ML Engineer. Write `model_part.py` for Experiment #{exp_no}.
+Hypothesis:
+{strat_resp}
+
+Deciding Reason & Conditions:
+{deciding_reason}
+
+ARCHITECTURE CONTRACT (MANDATORY):
+A fixed scaffold handles data loading from train.csv (699,960 rows), frozen 5-fold StratifiedKFold alignment,
+and out-of-fold prediction saving.
+NOTE ON PREVIOUS CRASH: In Exp 1, the script crashed with ValueError converting 'scheme' to int. The scaffold runner now handles folds.json safely and isolates fold indices.
+Your file `model_part.py` MUST define:
+```python
+def train_predict(X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame, y_val: pd.Series) -> np.ndarray:
+    # Train your model on (X_train, y_train)
+    # Return 1D numpy array of probabilities P(is_fraud=1) for X_val in [0.0, 1.0]
+```
+
+DATASET SCHEMA:
+- Features include numericals (amount_usd, account_balance_usd, etc.) and categoricals/booleans (merchant_category, card_type, channel, device_type, etc.).
+- Ensure categorical and boolean columns are converted with .astype('category') or encoded before fitting.
+
+MINIMAL WORKING EXAMPLE:
+```python
+import numpy as np
+import pandas as pd
+from lightgbm import LGBMClassifier
+
+def train_predict(X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame, y_val: pd.Series) -> np.ndarray:
+    cat_cols = X_train.select_dtypes(include=['object', 'category', 'bool']).columns.tolist()
+    for col in cat_cols:
+        X_train[col] = X_train[col].astype('category')
+        X_val[col] = X_val[col].astype('category')
+
+    model = LGBMClassifier(
+        n_estimators=100,
+        learning_rate=0.05,
+        max_depth=6,
+        random_state=42,
+        n_jobs=-1,
+        verbose=-1
+    )
+    model.fit(X_train, y_train)
+    return model.predict_proba(X_val)[:, 1]
+```
+Return ONLY the runnable Python code for `model_part.py` inside ```python ... ```.
+"""
+        eng_code_raw = await asyncio.to_thread(query_llm, eng_prompt, system="You are the ML Engineer. Return only valid python code.")
         match = re.search(r"```(?:python)?\s*\n(.*?)\n```", eng_code_raw, re.DOTALL)
         code_str = match.group(1) if match else eng_code_raw
 
-        script_path = self.run_dir / f"exp_{exp_no}.py"
-        with open(script_path, "w", encoding="utf-8") as f:
+        model_module_path = self.run_dir / "model_part.py"
+        with open(model_module_path, "w", encoding="utf-8") as f:
             f.write(code_str)
 
-        self.append_transcript(agent="Engineer", role="Engineer", message=f"Generated runnable script `exp_{exp_no}.py` ({len(code_str)} bytes). Handing over to Runner.")
+        # Copy fixed scaffold into run_dir
+        scaffold_src = Path(__file__).parent / "scaffold_runner.py"
+        scaffold_dst = self.run_dir / "run_scaffold.py"
+        shutil.copyfile(scaffold_src, scaffold_dst)
+
+        self.append_transcript(agent="Engineer", role="Engineer", message=f"Generated `model_part.py` ({len(code_str)} bytes) conforming to Scaffold contract.")
         if not self.is_running:
             return {"status": "STOPPED"}
 
-        # ── Step 5: Local Execution via Runner ──
+        # ── Step 5: Execution & Debug Loop ──
         self.runner.timeout_seconds = timeout_seconds
-        exec_res = await self.runner.execute_script(script_path)
-        cv_score = exec_res.get("cv_score")
+        cmd_args = [
+            "--run-dir", str(self.run_dir.resolve()),
+            "--data-dir", str(self.data_dir.resolve()),
+            "--folds-file", str((self.folds_file or (self.run_dir / "folds.json")).resolve()),
+            "--model-module", str(model_module_path.resolve())
+        ]
+
+        runner_start = asyncio.get_event_loop().time()
+        exec_res = await self.runner.execute_script(scaffold_dst, args=cmd_args, verify_oof=True)
         exec_status = exec_res.get("status", "FAILED")
+        cv_score = exec_res.get("cv_score")
+        debug_attempts = 0
+        max_debug_attempts = 2
+
+        while exec_status != "PASSED" and debug_attempts < max_debug_attempts and self.is_running:
+            debug_attempts += 1
+            err_msg = exec_res.get("last_stderr") or exec_res.get("error") or "Unknown execution error"
+            recent_stdout = exec_res.get("last_stdout") or ""
+            logger.warning(f"[Engineer Debug Loop] Exp #{exp_no} Attempt #{debug_attempts}/2. Error: {err_msg[:200]}")
+
+            fix_prompt = f"""The model script failed inside the sandbox runner with the following error:
+ERROR:
+{err_msg}
+
+RECENT STDOUT:
+{recent_stdout}
+
+CURRENT CODE (`model_part.py`):
+{code_str}
+
+Fix the bug in `model_part.py`. Maintain the required signature:
+def train_predict(X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame, y_val: pd.Series) -> np.ndarray:
+Return ONLY the corrected Python code inside ```python ... ```.
+"""
+            fix_resp = await asyncio.to_thread(query_llm, fix_prompt, system="You are the ML Engineer. Fix the code precisely.")
+            m_fix = re.search(r"```(?:python)?\s*\n(.*?)\n```", fix_resp, re.DOTALL)
+            code_str = m_fix.group(1) if m_fix else fix_resp
+
+            with open(model_module_path, "w", encoding="utf-8") as f:
+                f.write(code_str)
+
+            self.state["debug_attempts"].append({
+                "exp_no": exp_no,
+                "attempt": debug_attempts,
+                "error": err_msg[:500],
+                "fix_summary": f"Refactored model_part.py ({len(code_str)} bytes)",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            })
+            self.append_transcript(
+                agent="Engineer",
+                role="Engineer",
+                message=f"Applied Debug Fix #{debug_attempts}/2 for Exp #{exp_no} after error: {err_msg[:120]}"
+            )
+
+            exec_res = await self.runner.execute_script(scaffold_dst, args=cmd_args, verify_oof=True)
+            exec_status = exec_res.get("status", "FAILED")
+            cv_score = exec_res.get("cv_score")
+
+        phase_timings["runner_seconds"] = round(asyncio.get_event_loop().time() - runner_start, 2)
+        elapsed_total = asyncio.get_event_loop().time() - exp_start_time
+        exit_code = exec_res.get("exit_code")
+        signal = exec_res.get("signal")
 
         if exec_status != "PASSED":
-            self.record_failure("EXPERIMENT_EXECUTION_FAILURE", f"Experiment #{exp_no} exited with status {exec_status}", exec_res.get("stderr"))
+            self.record_failure("EXPERIMENT_EXECUTION_FAILURE", f"Experiment #{exp_no} exited with status {exec_status} (exit {exit_code})", exec_res.get("last_stderr") or exec_res.get("error"))
 
         self.state["experiments"].append({
             "exp_no": exp_no,
             "hypothesis": strat_resp[:160] + "...",
+            "skeptic_verdict": final_verdict,
+            "deciding_reason": deciding_reason,
             "cv_score": cv_score,
             "status": exec_status,
-            "elapsed_seconds": exec_res.get("elapsed_seconds", 0.0)
+            "exit_code": exit_code,
+            "signal": signal,
+            "debug_attempts": debug_attempts,
+            "phase_timings": phase_timings,
+            "elapsed_seconds": round(elapsed_total, 2)
         })
 
-        # ── Step 6: Postmortem & Lesson Generation ──
+        # ── Step 6: Honest Postmortem & Lesson Generation ──
+        what_ran = f"run_scaffold.py with model_part.py ({phase_timings['runner_seconds']}s, exit {exit_code})"
+        log_excerpt = (exec_res.get("last_stderr") or exec_res.get("last_stdout") or "")[:400]
+        if cv_score is not None:
+            what_worked = f"Scaffold completed 5-fold CV. Harness-verified CV ROC-AUC: {cv_score:.5f}"
+            what_failed = "None"
+            why_reasoning = f"Harness computed real out-of-fold ROC-AUC {cv_score:.5f} from oof_predictions.parquet"
+            next_steps = "Compare vs baseline and explore ensembling / further feature engineering"
+        else:
+            what_worked = "Sandbox execution and error capture succeeded"
+            what_failed = f"Execution failed (exit code {exit_code}). Log excerpt: {log_excerpt}"
+            why_reasoning = f"Harness-verified CV: NONE. Model script failed after {debug_attempts} debug attempts"
+            next_steps = "Address the root error in model_part.py or simplify feature pipeline"
+
         lesson_record = await self.lesson_service.create_lesson(
             exp_no=exp_no,
             hypothesis=strat_resp,
-            methodology=f"Executed exp_{exp_no}.py ({exec_res.get('elapsed_seconds', 0):.1f}s)",
+            methodology=what_ran,
             cv_score=cv_score,
-            what_worked=f"Experiment executed with status {exec_status}. CV ROC-AUC: {cv_score}" if cv_score else "Process caught execution safely",
-            what_failed=exec_res.get("stderr", "None")[:300] if exec_status != "PASSED" else "None",
-            why_reasoning="Measured real out-of-fold performance against frozen CV split",
-            next_steps=f"Evaluate score vs baseline and adjust features/ensembles" if cv_score else "Fix runtime errors in next cycle",
+            what_worked=what_worked,
+            what_failed=what_failed,
+            why_reasoning=why_reasoning,
+            next_steps=next_steps,
             status=exec_status
         )
         self.state["lessons"].append(lesson_record)
@@ -313,14 +605,14 @@ class AgentTeamOrchestrator:
         self.append_transcript(
             agent="Skeptic",
             role="Skeptic",
-            message=f"Experiment #{exp_no} evaluated. Status: {exec_status} | Real CV ROC-AUC: {cv_score if cv_score is not None else 'FAILED'}. Lesson saved and ingested to NotebookLM."
+            message=f"Experiment #{exp_no} evaluated. Status: {exec_status} | Real CV ROC-AUC: {cv_score if cv_score is not None else 'FAILED / NONE'}. Lesson saved and ingested to NotebookLM."
         )
 
         return {
             "exp_no": exp_no,
             "status": exec_status,
             "cv_score": cv_score,
-            "elapsed_seconds": exec_res.get("elapsed_seconds", 0.0),
+            "elapsed_seconds": round(elapsed_total, 2),
             "lesson_file": lesson_record.get("file_path")
         }
 

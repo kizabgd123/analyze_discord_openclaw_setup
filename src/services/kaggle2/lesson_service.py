@@ -41,13 +41,14 @@ class LessonService:
         Creates a structured lesson, writes it to disk, and ingests into NotebookLM.
         """
         timestamp = datetime.now(timezone.utc).isoformat()
-        score_display = f"{cv_score:.5f}" if cv_score is not None else "NOT RUN / FAILED"
+        score_display = f"{cv_score:.5f}" if cv_score is not None else "NONE"
+        cv_line = f"Harness-verified CV ROC-AUC: {cv_score:.5f}" if cv_score is not None else f"Harness-verified CV: NONE ({status})"
 
         content = f"""# Lesson: Experiment {exp_no} — {status}
 
 - **Date:** {timestamp}
 - **Status:** {status}
-- **Real CV ROC-AUC:** {score_display}
+- **{cv_line}**
 
 ## 1. Hypothesis
 {hypothesis}

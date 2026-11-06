@@ -185,26 +185,41 @@ class LocalRunner:
                 f.write(f"STDOUT:\n{stdout_text}\n")
                 f.write(f"STDERR:\n{stderr_text}\n")
 
+            stdout_lines = stdout_text.splitlines()
+            stderr_lines = stderr_text.splitlines()
+            last_stdout = "\n".join(stdout_lines[-50:]) if stdout_lines else ""
+            last_stderr = "\n".join(stderr_lines[-50:]) if stderr_lines else ""
+            exit_code = self.current_process.returncode if self.current_process else 1
+            signal_num = -exit_code if (exit_code is not None and exit_code < 0) else None
+
             if self._killed_manually:
                 return {
                     "status": "FAILED",
                     "exit_code": -9,
+                    "signal": 9,
                     "cv_score": None,
+                    "fold_scores": {},
                     "error": "Process was terminated manually by Stop signal",
                     "stdout": stdout_text,
                     "stderr": stderr_text or "Process killed by operator",
+                    "last_stdout": last_stdout,
+                    "last_stderr": last_stderr,
                     "elapsed_seconds": elapsed
                 }
 
-            exit_code = self.current_process.returncode
             if exit_code != 0:
+                err_summary = stderr_text.strip() or stdout_text.strip() or f"Script exited with code {exit_code}"
                 return {
                     "status": "FAILED",
                     "exit_code": exit_code,
+                    "signal": signal_num,
                     "cv_score": None,
-                    "error": f"Script exited with code {exit_code}",
+                    "fold_scores": {},
+                    "error": err_summary,
                     "stdout": stdout_text,
                     "stderr": stderr_text,
+                    "last_stdout": last_stdout,
+                    "last_stderr": last_stderr,
                     "elapsed_seconds": elapsed
                 }
 
@@ -212,11 +227,14 @@ class LocalRunner:
                 return {
                     "status": "PASSED",
                     "exit_code": exit_code,
+                    "signal": None,
                     "cv_score": None,
                     "fold_scores": {},
                     "error": None,
                     "stdout": stdout_text,
                     "stderr": stderr_text,
+                    "last_stdout": last_stdout,
+                    "last_stderr": last_stderr,
                     "elapsed_seconds": elapsed
                 }
 
@@ -225,25 +243,34 @@ class LocalRunner:
             # STDOUT IS COMPLETELY IGNORED FOR SCORING.
             eval_res = await self._evaluate_oof_harness()
             if eval_res.get("status") != "PASSED":
+                harness_err = eval_res.get("error", "ScoreIntegrityError: OOF predictions verification failed")
+                stdout_errs = [l.strip() for l in stdout_lines if any(k in l.lower() for k in ("error", "exception", "failed", "not found"))]
+                combined_err = f"{harness_err} [Stdout notice: {'; '.join(stdout_errs[-3:])}]" if (stdout_errs and not stderr_text.strip()) else harness_err
                 return {
                     "status": "FAILED",
                     "exit_code": 1,
+                    "signal": None,
                     "cv_score": None,
                     "fold_scores": {},
-                    "error": eval_res.get("error", "ScoreIntegrityError: OOF predictions verification failed"),
+                    "error": combined_err,
                     "stdout": stdout_text,
                     "stderr": stderr_text,
+                    "last_stdout": last_stdout,
+                    "last_stderr": last_stderr,
                     "elapsed_seconds": elapsed
                 }
 
             return {
                 "status": "PASSED",
                 "exit_code": exit_code,
+                "signal": None,
                 "cv_score": eval_res.get("cv_score"),
                 "fold_scores": eval_res.get("fold_scores", {}),
                 "error": None,
                 "stdout": stdout_text,
                 "stderr": stderr_text,
+                "last_stdout": last_stdout,
+                "last_stderr": last_stderr,
                 "elapsed_seconds": elapsed
             }
 

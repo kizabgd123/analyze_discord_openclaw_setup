@@ -115,6 +115,9 @@ def render_html_dashboard(state: Dict[str, Any], output_path: Path) -> Path:
     # 4. NotebookLM Q&A section
     nlm_cards = ""
     for q in nlm_queries:
+        q_agent = html.escape(q.get("agent", "Agent"))
+        q_reason = html.escape(q.get("reason", "general"))
+        q_latency = f"{q.get('latency_seconds', 0.0):.1f}s"
         q_text = html.escape(q.get("question", ""))
         ans_text = html.escape(q.get("answer") or "(No answer returned)")
         q_time = html.escape(q.get("timestamp", ""))
@@ -133,7 +136,7 @@ def render_html_dashboard(state: Dict[str, Any], output_path: Path) -> Path:
         nlm_cards += f"""
         <div class="nlm-card">
             <div class="nlm-header">
-                <span class="nlm-title">🔎 Query: {q_text}</span>
+                <span class="nlm-title">🔎 [{q_agent} | {q_reason}] ({q_latency}): {q_text}</span>
                 {status_badge}
                 <span class="chat-time">{q_time}</span>
             </div>
@@ -148,37 +151,104 @@ def render_html_dashboard(state: Dict[str, Any], output_path: Path) -> Path:
     for exp in experiments:
         exp_no = exp.get("exp_no", 0)
         hyp = html.escape(exp.get("hypothesis", ""))
+        verdict = html.escape(exp.get("skeptic_verdict", "PENDING"))
+        deciding_reason = html.escape(exp.get("deciding_reason", "—"))
         cv = exp.get("cv_score")
-        cv_str = f"{cv:.5f}" if cv is not None else '<span class="text-danger">NOT RUN / FAILED</span>'
+        cv_str = f"{cv:.5f}" if cv is not None else '<span class="text-danger">NONE</span>'
         status = html.escape(exp.get("status", "PENDING"))
-        elapsed = f"{exp.get('elapsed_seconds', 0):.1f}s"
-        status_badge = f'<span class="badge badge-{"success" if status == "PASSED" else "danger"}">{status}</span>'
+        
+        exit_code = exp.get("exit_code")
+        signal = exp.get("signal")
+        if signal:
+            exit_str = f"SIG {signal}"
+        elif exit_code is not None:
+            exit_str = f"Code {exit_code}"
+        else:
+            exit_str = "—"
+
+        debug_cnt = exp.get("debug_attempts", 0)
+        debug_str = f"{debug_cnt}/2" if debug_cnt else "0/2"
+
+        pt = exp.get("phase_timings", {})
+        if pt:
+            timing_str = f"Tot: {exp.get('elapsed_seconds', 0):.0f}s (NLM: {pt.get('nlm_seconds', 0):.0f}s, Run: {pt.get('runner_seconds', 0):.0f}s)"
+        else:
+            timing_str = f"{exp.get('elapsed_seconds', 0):.1f}s"
+
+        if status == "PASSED":
+            status_badge = '<span class="badge badge-success">PASSED</span>'
+        elif status == "BLOCKED":
+            status_badge = '<span class="badge badge-blocked">BLOCKED</span>'
+        else:
+            status_badge = f'<span class="badge badge-danger">{status}</span>'
+
+        if verdict == "PROCEED":
+            verdict_badge = '<span class="badge badge-success">PROCEED</span>'
+        elif "CONDITIONS" in verdict:
+            verdict_badge = '<span class="badge badge-warning">CONDITIONS</span>'
+        elif verdict == "BLOCK":
+            verdict_badge = '<span class="badge badge-danger">BLOCK</span>'
+        else:
+            verdict_badge = f'<span class="badge badge-info">{verdict}</span>'
 
         exp_rows += f"""
         <tr>
             <td><strong>#{exp_no}</strong></td>
             <td>{hyp}</td>
+            <td>{verdict_badge}</td>
+            <td><small>{deciding_reason}</small></td>
             <td><code>{cv_str}</code></td>
             <td>{status_badge}</td>
-            <td>{elapsed}</td>
+            <td><small>{exit_str}</small></td>
+            <td><small>{debug_str}</small></td>
+            <td><small>{timing_str}</small></td>
         </tr>
         """
+
+    # Debug attempts list
+    debug_attempts = state.get("debug_attempts", [])
+    debug_html = ""
+    if debug_attempts:
+        d_items = ""
+        for da in debug_attempts:
+            d_items += f"""
+            <div class="debug-card">
+                <div class="debug-header">
+                    <strong>Exp #{da.get('exp_no')} — Attempt #{da.get('attempt')}/2</strong>
+                    <span class="chat-time">{html.escape(da.get('timestamp', ''))}</span>
+                </div>
+                <div class="debug-err"><strong>Error Encountered:</strong><pre>{html.escape(da.get('error', ''))}</pre></div>
+                <div class="debug-fix"><strong>Engineer Fix:</strong> {html.escape(da.get('fix_summary', ''))}</div>
+            </div>
+            """
+        debug_html = f"""
+        <div class="debug-attempts-container">
+            <h3 style="font-size: 1.05rem; margin-top: 1rem; margin-bottom: 0.5rem; color: #e3b341;">🛠️ Debug Loop History ({len(debug_attempts)})</h3>
+            {d_items}
+        </div>
+        """
+
     exp_table = f"""
     <div class="folds-notice">🔒 <strong>CV Split Protocol:</strong> {html.escape(folds_info)} (Fixed for all experiments)</div>
     <div class="table-wrapper">
         <table class="data-table">
             <thead>
                 <tr>
-                    <th style="width: 8%;">Exp #</th>
-                    <th style="width: 45%;">Hypothesis</th>
-                    <th style="width: 17%;">Real CV (ROC-AUC)</th>
-                    <th style="width: 15%;">Status</th>
-                    <th style="width: 15%;">Duration</th>
+                    <th style="width: 5%;">Exp #</th>
+                    <th style="width: 25%;">Hypothesis</th>
+                    <th style="width: 10%;">Skeptic</th>
+                    <th style="width: 20%;">Deciding Reason</th>
+                    <th style="width: 12%;">Real CV (AUC)</th>
+                    <th style="width: 8%;">Status</th>
+                    <th style="width: 6%;">Exit</th>
+                    <th style="width: 6%;">Debug</th>
+                    <th style="width: 8%;">Timing</th>
                 </tr>
             </thead>
-            <tbody>{exp_rows or '<tr><td colspan="5">No experiments executed yet</td></tr>'}</tbody>
+            <tbody>{exp_rows or '<tr><td colspan="9">No experiments executed yet</td></tr>'}</tbody>
         </table>
     </div>
+    {debug_html}
     """
 
     # 6. Lessons section
@@ -348,6 +418,8 @@ def render_html_dashboard(state: Dict[str, Any], output_path: Path) -> Path:
         }}
         .badge-success {{ background: #1f502c; color: #3fb950; }}
         .badge-danger {{ background: #5a1e1e; color: #f85149; }}
+        .badge-warning {{ background: #563d04; color: #e3b341; }}
+        .badge-blocked {{ background: #4a1d1d; color: #ff7b72; border: 1px solid #da3633; }}
         .badge-info {{ background: #173863; color: #79c0ff; }}
         .badge-kaggle-page {{ background: #003666; color: #58a6ff; }}
         .badge-public-notebook {{ background: #2f224f; color: #d2a8ff; }}
@@ -355,6 +427,28 @@ def render_html_dashboard(state: Dict[str, Any], output_path: Path) -> Path:
         .badge-academic {{ background: #0f4035; color: #56d364; }}
         .badge-repo {{ background: #343941; color: #c9d1d9; }}
         .badge-lesson {{ background: #3b2300; color: #ffa657; margin-left: 0.5rem; }}
+        .debug-attempts-container {{ margin-top: 1rem; }}
+        .debug-card {{
+            background: #1c1507;
+            border: 1px solid #d29922;
+            border-radius: 6px;
+            padding: 0.8rem;
+            margin-bottom: 0.6rem;
+            font-size: 0.88rem;
+        }}
+        .debug-header {{ display: flex; justify-content: space-between; color: #e3b341; margin-bottom: 0.3rem; }}
+        .debug-err pre {{
+            background: #2b0b0d;
+            color: #ff9b9b;
+            padding: 0.4rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            white-space: pre-wrap;
+            margin: 0.3rem 0;
+            max-height: 120px;
+            overflow-y: auto;
+        }}
+        .debug-fix {{ color: #7ee787; margin-top: 0.3rem; }}
         .folds-notice {{
             background: var(--bg-darker);
             border-left: 4px solid var(--accent-blue);
