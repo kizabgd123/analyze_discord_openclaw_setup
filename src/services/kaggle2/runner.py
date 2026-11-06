@@ -22,9 +22,13 @@ import json
 import signal
 import asyncio
 import logging
+import hashlib
+import py_compile
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 from pathlib import Path
+
+from src.services.kaggle2.leakage_validator import LeakageValidator
 
 logger = logging.getLogger("Kaggle2.Runner")
 
@@ -50,6 +54,83 @@ class LocalRunner:
         self.current_process: Optional[asyncio.subprocess.Process] = None
         self.current_pid: Optional[int] = None
         self._killed_manually: bool = False
+
+    def validate_pre_execution(
+        self,
+        model_script: Path,
+        manifest_file: Optional[Path] = None,
+        authoritative_fold_hash: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Deterministic pre-execution verification:
+          1. Verifies manifest presence and readability (if manifest_file provided).
+          2. Verifies frozen fold hash matches authoritative hash.
+          3. Checks dataset existence (train.csv).
+          4. Runs AST leakage checks on model script.
+          5. Validates Python syntax via py_compile.
+          6. Verifies Firejail sandbox availability (fail-closed).
+        """
+        errors = []
+
+        # 1. Manifest verification
+        if manifest_file is not None:
+            manifest_path = Path(manifest_file)
+            if not manifest_path.is_file():
+                errors.append(f"PreExecutionError: Manifest file missing at {manifest_path}")
+            else:
+                try:
+                    with open(manifest_path, "r", encoding="utf-8") as f:
+                        json.load(f)
+                except Exception as e:
+                    errors.append(f"PreExecutionError: Manifest JSON is corrupted: {e}")
+
+        # 2. Folds verification
+        folds_path = Path(self.folds_file)
+        if not folds_path.is_file():
+            errors.append(f"PreExecutionError: Frozen folds file missing at {folds_path}")
+        elif authoritative_fold_hash:
+            h = hashlib.sha256()
+            with open(folds_path, "rb") as f:
+                while chunk := f.read(65536):
+                    h.update(chunk)
+            actual_fold_sha = h.hexdigest()
+            if actual_fold_sha != authoritative_fold_hash:
+                errors.append(
+                    f"FoldTamperingError: Folds hash {actual_fold_sha} does not match authoritative {authoritative_fold_hash}"
+                )
+
+        # 3. Dataset existence
+        train_path = Path(self.data_dir) / "train.csv"
+        if not train_path.is_file():
+            errors.append(f"PreExecutionError: Dataset missing at {train_path}")
+
+        # 4. AST Leakage checks
+        script_path = Path(model_script)
+        if not script_path.is_file():
+            errors.append(f"PreExecutionError: Model script missing at {script_path}")
+        else:
+            code_str = script_path.read_text(encoding="utf-8")
+            leak_issues = LeakageValidator.check_ast_leakage(code_str)
+            if leak_issues:
+                errors.extend(leak_issues)
+
+            # 5. Syntax check
+            try:
+                py_compile.compile(str(script_path), doraise=True)
+            except py_compile.PyCompileError as e:
+                errors.append(f"SyntaxError: Model script fails compilation: {e}")
+
+        # 6. Sandbox check (fail-closed)
+        firejail_bin = Path(self.firejail_path)
+        if not firejail_bin.is_file() or not os.access(firejail_bin, os.X_OK):
+            errors.append(
+                f"SecurityError: Firejail sandbox unavailable at '{self.firejail_path}'. Unsandboxed execution prohibited."
+            )
+
+        return {
+            "passed": len(errors) == 0,
+            "errors": errors
+        }
 
     async def execute_script(
         self,
@@ -242,6 +323,23 @@ class LocalRunner:
             # Score Integrity: Evaluator runs outside sandbox, validates OOF predictions artifact,
             # verifies fold isolation (leakage check), and computes ground-truth ROC AUC deterministically.
             # STDOUT IS COMPLETELY IGNORED FOR SCORING.
+            if oof_file is not None:
+                oof_path = Path(oof_file)
+                if not oof_path.is_file() or oof_path.stat().st_size == 0:
+                    return {
+                        "status": "FAILED",
+                        "exit_code": 1,
+                        "signal": None,
+                        "cv_score": None,
+                        "fold_scores": {},
+                        "error": f"ArtifactMissingError: Script exited with code 0 but produced no OOF predictions at {oof_file}",
+                        "stdout": stdout_text,
+                        "stderr": stderr_text,
+                        "last_stdout": last_stdout,
+                        "last_stderr": last_stderr,
+                        "elapsed_seconds": elapsed
+                    }
+
             eval_res = await self._evaluate_oof_harness(oof_file=oof_file)
             if eval_res.get("status") != "PASSED":
                 harness_err = eval_res.get("error", "ScoreIntegrityError: OOF predictions verification failed")
