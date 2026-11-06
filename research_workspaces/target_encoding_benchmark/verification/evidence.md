@@ -127,3 +127,141 @@ for i in train_idx:
 
 ## Final Verdict
 **PASS** — All numerical results, checksums, and zero-leakage constraints independently reproduced and verified.
+
+---
+
+# Scientific Validation Report: SV1 — Four-Point Deep Inspection
+
+## Audit ID: SV1 | Phase: Final Scientific Validation | Date: 2026-11-06
+
+| Validation ID | Claim / Scope | Verdict | Evidence Method |
+|:---:|:---|:---:|:---|
+| SV1-P1 | Val-side OOF: each val row's target excluded from its own encoding | ✅ CONFIRMED | Index overlap test: 0 overlap in all 5 folds |
+| SV1-P1b | Train-side `train_encoded` is genuine OOF | ❌ CORRECTED | Direct inclusion test: target contributes to its own fold_map |
+| SV1-P2 | m=10 is independently validated optimum (not just grid best) | ✅ CONFIRMED (Refined) | Nested CV (5-outer, 3-inner): bias = 0.00019 |
+| SV1-P3 | Verifier ran in independent process context | ✅ PARTIAL | PID isolation confirmed; knowledge isolation is conventional only |
+| SV1-P4 | Continuation/stopping enforced by code or Kanban gates | ✅ PARTIAL | Kanban parent-child gate + worker timeout ENFORCED; cycle quota + plateau CONVENTIONAL |
+
+---
+
+## SV1-P1: OOF Encoding Correctness — Validation Side
+
+**Verification Method:** Enumerated `set(train_idx).intersection(set(val_idx))` across all 5 folds.
+
+**Script:** Executed inline Python in isolated subshell with `np.random.seed(42)`, identical data generation to `exp_002_m_grid_sensitivity.py`.
+
+| Fold | Train N | Val N | Index Overlap | Val cats in train | Val cats unseen |
+|:----:|:-------:|:-----:|:-------------:|:-----------------:|:---------------:|
+| 1 | 8000 | 2000 | **0** | 340 | 9 |
+| 2 | 8000 | 2000 | **0** | 343 | 6 |
+| 3 | 8000 | 2000 | **0** | 345 | 9 |
+| 4 | 8000 | 2000 | **0** | 352 | 12 |
+| 5 | 8000 | 2000 | **0** | 341 | 9 |
+
+**Verdict:** CONFIRMED. For every fold, `fold_map` is constructed exclusively from `(X_train, y_train)`. Validation targets `y[val_idx]` never enter `agg` or `fold_map`. Each validation row's target is strictly excluded from its own encoding. Val AUC figures (0.69815, etc.) are genuinely out-of-fold metrics.
+
+---
+
+## SV1-P1b: OOF Encoding Correctness — Training Side (CORRECTED CLAIM)
+
+**Previous Claim:** `train_encoded` was described as an "out-of-fold training encoding".
+
+**Corrected Finding:** `train_encoded[i]` for a training observation `i` is computed from `fold_map` derived from the fold where `i ∈ train_idx`. Since `fold_map` is aggregated over all of `y[train_idx]` including `y[i]`, row `i`'s own target value directly contributes to its own encoding. This is **in-sample**, not out-of-fold.
+
+**Concrete Proof (fold 0, sample i=0):**
+- Category `c=389`, target `y[0]=0`, count in training fold: `n=27`
+- Encoding **WITH** own target included: `0.237919`
+- Encoding **WITHOUT** own target (true LOO): `0.244528`
+- Difference: `0.006609` (non-zero → target contributes to encoding)
+
+**Additional Factor — Loop Overwriting:** Each index `i` appears in `K−1=4` training folds. The `train_encoded[i]` value is overwritten 4 times; the final value comes from the last fold that includes `i`. This makes it a composite, fold-ordered in-sample diagnostic, not a consistent cross-validated training encoding.
+
+**What is affected:**
+- `mean_train_auc` (~0.75167 for m=10) is an **in-sample composite diagnostic**, not a cross-validated training metric.
+- `generalization_gap` = `mean_train_auc − mean_val_auc` ≈ 0.05352 understates the true in-sample gap (the verifier's strict in-loop measure of 0.05252 is actually closer to a fold-level average, but still computed on subsets where the target is included).
+- **Val AUC metrics are unaffected** — they were always correctly out-of-fold.
+- The generalization gap is directionally correct (substantial in-sample memorization confirmed by both methods at ~0.75 vs ~0.698 AUC), but the precise magnitude is a composite artifact.
+
+**Terminology Correction:** `train_encoded` → `in_sample_composite_train_encoded` (diagnostic variable only).
+
+---
+
+## SV1-P2: M-Estimate Parameter Selection — Nested CV Validation
+
+**Previous Status:** m=10 selected as "best" via flat 5-fold grid search evaluated on the same folds used for selection. This introduces selection optimism.
+
+**Method:** Nested Cross-Validation.
+- Outer CV: `StratifiedKFold(n_splits=5, shuffle=True, random_state=42)` (same as EXP_002 outer evaluation)
+- Inner CV: `StratifiedKFold(n_splits=3, shuffle=True, random_state=99)` (independent seed, independent data split)
+- m grid: same 10 points as EXP_002
+- For each outer fold: (1) run inner CV on outer training data to select best m, (2) fit encoder on full outer training data with selected m, (3) evaluate on outer test data (held-out from both selection and training).
+
+**Results:**
+
+| Outer Fold | Best m (inner CV) | Outer Test AUC |
+|:----------:|:-----------------:|:--------------:|
+| 1 | 10.0 | 0.68162 |
+| 2 | 20.0 | 0.71933 |
+| 3 | 10.0 | 0.68472 |
+| 4 | 20.0 | 0.69931 |
+| 5 | 10.0 | 0.70483 |
+
+- **Nested CV Mean Test AUC:** `0.69796 ± 0.01377`
+- **Original flat 5-fold Val AUC (m=10):** `0.69815`
+- **Selection bias (optimism):** `0.69815 − 0.69796 = 0.00019` (< 0.03%)
+- **Best m distribution:** m=10 chosen in 3/5 folds; m=20 in 2/5 folds.
+
+**Verdict:** CONFIRMED with refined scope. The original m=10 selection is independently validated as near-optimal. The selection bias is negligible (0.00019 AUC). The optimal m is robustly in the {10, 20} range — this is a genuine empirical finding, not an artefact of selection on evaluation data. The flat 5-fold claim was technically a grid search optimum, not an independently validated optimum; nested CV now provides that independent validation.
+
+---
+
+## SV1-P3: Verifier Isolation — Process vs Knowledge
+
+**Task Inspected:** `t_cf9f352e` (AUD_002, assigned to `kreten`, Run #19)
+**Author Task Inspected:** `t_eb661e8b` (EXP_002, assigned to `kiza`, Run #18)
+
+### Process-Level Isolation (CONFIRMED):
+| Dimension | EXP_002 (Author) | AUD_002 (Verifier) | Isolated? |
+|:---|:---:|:---:|:---:|
+| Profile | `kiza` | `kreten` | ✅ Yes |
+| PID | 1965442 | 1969005 | ✅ Yes (separate OS process) |
+| Run # | 18 | 19 | ✅ Yes |
+| .env path | `/home/.hermes/profiles/kiza` | `/home/.hermes/profiles/kreten` | ✅ Yes |
+| SOUL.md | kiza-specific | kreten-specific | ✅ Yes |
+| Memory (in-process) | No shared Python objects | Subshell, fresh interpreter | ✅ Yes |
+| Worker daemon | kizabgd (same host) | kizabgd (same host) | ⚠️ Same daemon |
+
+### Knowledge/Context Isolation (PARTIAL — not fully blind):
+| Dimension | Evidence | Verdict |
+|:---|:---|:---:|
+| LLM model | Both profiles: `gemma4:31b-cloud` (same weights) | ⚠️ Same model |
+| Filesystem access | Both profiles access same workspace dir | ⚠️ Shared |
+| Prior conclusions accessible | `experiment_log.md`, `local_leaderboard.md`, author's kanban summary visible to verifier | ⚠️ NOT blinded |
+| Task body | Contains "Independent isolated audit of EXP_001 and EXP_002 artifacts" and explicitly names artifacts | ⚠️ Author intent known |
+| Technical blind | No mechanism prevents verifier from reading author's experiment_log prior to running scripts | ❌ Not enforced |
+
+**Verdict:** Process isolation is real — separate OS PID, separate profile environment, no shared in-memory state. Knowledge/context isolation is conventional: the verifier has access to all workspace files including the author's conclusions. No technical mechanism blinds the verifier from prior results before running scripts. The isolation provides procedural separation of execution responsibility, not full scientific blind review.
+
+**Remaining Limitation:** True knowledge isolation would require the verifier to receive only raw code and data (no prior summaries), run scripts independently, and produce findings before reading the author's report. This was not implemented.
+
+---
+
+## SV1-P4: Continuation/Stopping Implementation — Code vs Convention
+
+### Enforcement Mechanisms Inspected:
+
+| Mechanism | Documented | Code/System Enforced | Evidence |
+|:---|:---:|:---:|:---|
+| Kanban parent-child gate (`t_exp_003` blocked until `t_cf9f352e` DONE) | ✅ | ✅ | `hermes kanban show t_cf9f352e` shows `children: t_cf9f352e`; Hermes blocks READY transition until parent is DONE |
+| Worker task timeout (600s) | ✅ | ✅ | Hermes worker enforces execution timeouts; `max-retries: 2` visible in kanban events |
+| 2-cycle milestone quota (stop after EXP_001+EXP_002) | ✅ | ❌ | Text in `next_actions.md` only; no programmatic check prevents creating EXP_003 |
+| Metric plateau stopping (Δ < 0.001) | ✅ | ❌ | Applied post-hoc in documentation; m=10→m=20: Δ=−0.00063 would trigger halt, but check is not runtime-evaluated before task creation |
+| Autonomous EXP_003 generation from EXP_002 results | ✅ (documented) | ❌ | `t_exp_003` exists only as text in `next_actions.md`; it was manually specified, NOT autonomously created by an experiment loop |
+
+### EXP_003 Execution State:
+- **`hermes kanban list` output:** `t_exp_003` NOT present (confirmed).
+- **Location:** Exists only as a row in `planning/next_actions.md` (status: QUEUED).
+- **Never dispatched:** No Kanban `created` event exists for `t_exp_003`.
+- **Authorization:** Per milestone budget, EXP_003 remains intentionally unexecuted. Dispatch requires explicit user authorization.
+
+**Verdict:** Two stopping mechanisms are technically enforced by Hermes (parent-child dependency gate, worker timeout/retry limit). Two mechanisms (cycle quota, plateau condition) are documented conventions only — they exist as written policy in `next_actions.md` but have no runtime enforcement code. The continuation from EXP_002→EXP_003 was manually specified, not autonomously generated by a feedback loop. This is an honest limitation of the current implementation.

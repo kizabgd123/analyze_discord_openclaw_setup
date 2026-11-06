@@ -128,6 +128,29 @@ Phase 4: Acceptance Test on Kanban Board
 - [x] Update `task_plan.md` and `progress.md`.
 - [x] JudgeGuard pre/post checks and Git commit.
 - **Status:** complete ✅
+
+## Scientific Validation Phase
+
+### Phase SV1: Deep Scientific Validation of Four Core Methodological Points
+- [x] **Point 1 (OOF Correctness & Terminology):**
+  - Verify validation-side zero leakage: confirmed 0 index overlap across all 5 folds, targets completely excluded.
+  - Audit training-side `train_encoded`: prove row's own target is included in fold-map groupby (in-sample memorization), explain 4x loop overwriting.
+  - Recalculate affected metrics: clarify Train AUC (0.75167) as in-sample composite diagnostic; update terminology in `experiment_log.md` and `local_leaderboard.md`.
+- [x] **Point 2 (Parameter Selection & Nested CV):**
+  - Distinguish flat 5-fold grid optimum from independently validated optimum.
+  - Implement and execute nested 5-outer × 3-inner cross-validation.
+  - Document results: Nested CV Test AUC = 0.69796 ± 0.01377; selection optimism = 0.00019; modal optimum = m=10.0 (3/5 folds).
+- [x] **Point 3 (Verifier Isolation: Process vs Knowledge):**
+  - Document process isolation: separate profiles (`kiza` vs `kreten`), separate OS PIDs (1965442 vs 1969005), separate runs (#18 vs #19), subshell memory isolation.
+  - Document knowledge isolation boundaries: shared filesystem directory, same underlying LLM weights (`gemma4:31b-cloud`), author's summaries visible.
+  - Clarify that isolation is procedural/process-level, not full double-blind scientific review.
+- [x] **Point 4 (Continuation/Stopping & Execution Gating):**
+  - Verify system-enforced gates: Kanban parent-child dependency (`parents: ['t_eb661e8b']`), worker timeouts (600s), retry caps (max 2).
+  - Verify procedural policies: 2-cycle milestone budget, metric plateau stopping rule ($\Delta < 0.001$).
+  - Confirm execution state: `t_exp_003` is NOT on Kanban board (confirmed via `hermes kanban list`), remains completely unexecuted.
+- [x] Author comprehensive `SCIENTIFIC_VALIDATION_REPORT.md` artifact in brain directory.
+- [x] Maintain `WORK_LOG.md`, run JudgeGuard post-check, and commit Phase SV1.
+- **Status:** complete ✅
 1. How to coordinate Research Relay without bot-to-bot chat?
    *Answer*: Via Hermes Kanban cards, artifact references (`discoveries/<agent>.md`), and dependency gating. Agents write to disk; next stage reads from disk.
 2. How to ensure independent discovery?

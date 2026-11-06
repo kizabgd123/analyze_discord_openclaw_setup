@@ -30,3 +30,22 @@
 2. **Evaluation Scope: Cross-Validation vs External Test Performance:**
    - All validation metrics in this log represent Out-of-Fold (OOF) cross-validation evaluation under 5-Fold Stratified K-Fold.
    - No separate, held-out external test set was utilized in EXP_001 or EXP_002. These metrics measure out-of-fold generalization on the training distribution and must not be conflated with generalization to unseen future test distributions.
+
+## SV1 Corrections — Scientific Validation Phase (2026-11-06)
+
+### Train-Side `train_encoded` Terminology Correction
+**Previous description:** "Mean Train AUC" implied out-of-fold training metric.
+**Corrected description:** `train_encoded[i]` for training observations is an **in-sample composite diagnostic**, not an OOF metric. For each training row `i`, `fold_map` was computed from the fold where `i ∈ train_idx`, which includes `y[i]` itself in the groupby aggregation. The encoding therefore reflects the row's own target. The array is additionally overwritten 4 times per row (once per training fold), with the final value from the last applicable fold.
+
+**Impact on reported metrics:**
+- Val AUC figures (e.g. 0.69815 for m=10) are **unaffected** — they were always correctly out-of-fold.
+- `mean_train_auc` (~0.75167) is an in-sample composite diagnostic metric, NOT a cross-validated training AUC.
+- `generalization_gap` ≈ 0.05352 is derived from the in-sample train composite vs OOF val, making it an approximate gap diagnostic rather than a precisely defined statistical quantity.
+- Both the composite (0.75167) and strict in-loop (0.75067) train AUC methods confirm strong in-sample memorization vs val AUC (~0.698). The directional conclusion (fold isolation is necessary) is unaffected.
+
+### Nested CV Parameter Validation (SV1-P2)
+**Method:** 5-outer × 3-inner nested CV, outer seed=42, inner seed=99.
+**Result:** Nested CV Mean Test AUC = **0.69796 ± 0.01377**
+**Selection bias vs flat 5-fold:** 0.69815 − 0.69796 = **0.00019** (< 0.03%, negligible)
+**Best m across outer folds:** [10, 20, 10, 20, 10] → m ∈ {10, 20} robustly near-optimal.
+**Conclusion:** m=10 is confirmed as a near-optimum by independent nested CV. The original flat 5-fold selection was technically evaluated on the same data used for selection, but the selection bias is negligible.

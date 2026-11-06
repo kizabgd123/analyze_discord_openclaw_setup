@@ -261,3 +261,39 @@
   - `FINAL_AUDIT_REPORT.md` (created artifact in brain)
   - `task_plan.md` (updated)
   - `progress.md` (updated)
+
+---
+
+### Phase SV1: Scientific Validation — Four Core Methodological Points
+- **Status:** complete
+- **Started:** 2026-11-06 17:55 CET
+- **Actions taken:**
+  - **Point 1 (OOF Encoding & Target Exclusion):**
+    - Ran empirical check on all 5 folds: zero index overlap between `train_idx` and `val_idx` confirmed.
+    - Verified `oof_encoded` validation targets are strictly excluded from their own encoding. Mean Val AUC (0.69815) is genuine OOF.
+    - Audited `train_encoded`: proved training samples have their own target included in the `fold_map` aggregation (sample 0 encoding with target=0.237919 vs without target=0.244528; diff=0.006609).
+    - Clarified that `train_encoded` is an in-sample composite diagnostic overwritten across folds.
+    - Updated terminology across `experiment_log.md` and `local_leaderboard.md`.
+  - **Point 2 (Parameter Selection & Nested CV):**
+    - Executed 5-outer × 3-inner nested Stratified CV on identical synthetic data.
+    - Results: Nested CV Mean Test AUC = 0.69796 ± 0.01377.
+    - Selection optimism in flat 5-fold CV is 0.00019 (negligible).
+    - Optimal parameter $m=10.0$ selected in 3/5 folds, $m=20.0$ in 2/5 folds.
+  - **Point 3 (Verifier Isolation):**
+    - Documented process isolation: separate profiles (`kiza` vs `kreten`), separate OS PIDs (1965442 vs 1969005), separate runs (#18 vs #19), subshell execution.
+    - Documented knowledge isolation boundaries: shared directory, shared LLM model (`gemma4:31b-cloud`), author summaries visible in workspace.
+    - Confirmed isolation is procedural/process-level, not blinded scientific review.
+  - **Point 4 (Continuation/Stopping & Kanban Gating):**
+    - Verified system-enforced gates: Kanban parent dependency (`parents: ['t_eb661e8b']`), worker timeouts (600s), retry caps (2).
+    - Verified procedural policies: 2-cycle milestone quota, metric plateau rule ($\Delta < 0.001$).
+    - Verified execution status: `t_exp_003` is NOT on Kanban board (confirmed via `hermes kanban list`), remains completely unexecuted.
+  - Authored comprehensive `SCIENTIFIC_VALIDATION_REPORT.md` artifact in brain directory.
+- **Files created/modified:**
+  - `verification/evidence.md` (updated with SV1 section)
+  - `experiments/experiment_log.md` (updated with SV1 section)
+  - `experiments/local_leaderboard.md` (updated terminology)
+  - `research/hypotheses.md` (updated HYP_002 evidence)
+  - `planning/next_actions.md` (updated governance section)
+  - `task_plan.md` (updated)
+  - `progress.md` (updated)
+  - `SCIENTIFIC_VALIDATION_REPORT.md` (created artifact in brain)

@@ -43,20 +43,25 @@ flowchart TD
   - Kanban Inscription: Queued as `t_exp_003` with prerequisite `t_cf9f352e`.
 
 ### 2. Enforcement of Resource Limits & Stopping Conditions
-The engine governs autonomous execution through four distinct stopping and throttling mechanisms:
-1. **Milestone Cycle Quota:**
-   - The research charter restricts exploratory cycles to **2 consecutive experiment cycles** per milestone (`EXP_001` and `EXP_002`). Once the two cycles finish, the Experiment Engineer is prohibited from launching further experiments until formal independent verification and milestone reporting are completed.
-2. **Metric Plateau Stopping Condition:**
-   - If consecutive hyperparameter steps produce marginal gains below the significance threshold ($\Delta \text{AUC} < 0.001$) or turn negative, search along that dimension terminates.
-   - In EXP_002, $m=10.0 \to m=20.0$ produced $\Delta = -0.00063$, and $m \to 50.0$ produced $\Delta = -0.00311$, cleanly establishing the interior peak and halting further micro-tuning of $m$.
-3. **Mandatory Verification Gate:**
-   - No subsequent milestone task can transition from `QUEUED` to `READY` without a verified `PASS` verdict in `verification/evidence.md`.
-   - Task `t_exp_003` explicitly declares `t_cf9f352e` as its parent, ensuring Kanban dependency enforcement blocks execution if verification fails.
-4. **Isolated Task Lifetime:**
-   - Background workers enforce execution timeouts (max 600s) and retry limits (max 2 retries). If a script hangs or crashes, the task transitions to `failed` and halts the pipeline.
+The engine governs autonomous execution through a combination of system-enforced gates and documented research conventions:
+
+#### A. Code & System-Enforced Mechanisms:
+1. **Mandatory Kanban Dependency Gate (System Enforced):**
+   - The Hermes Kanban engine strictly prevents tasks from executing until parent dependencies reach `done`.
+   - In `hermes kanban show t_cf9f352e`, `parents: ['t_eb661e8b']` was enforced before AUD_002 could claim or run.
+   - Any future task such as `t_exp_003` is gated behind `t_cf9f352e`, preventing dispatch if verification fails.
+2. **Worker Execution Timeouts & Retries (System Enforced):**
+   - The Hermes background daemon (`kizabgd`) enforces a maximum task execution timeout (600s) and retry limits (`max-retries: 2`). Tasks exceeding resource bounds are automatically failed.
+
+#### B. Documented Governance Policies (Procedural / Conventional):
+3. **Milestone Cycle Quota (Procedural Policy):**
+   - The project charter specifies a maximum of **2 consecutive experiment cycles** per milestone (`EXP_001` and `EXP_002`). This is enforced by project protocol and commit checkpointing, but currently lacks an automated daemon script to reject manual Kanban task creation beyond quota.
+4. **Metric Plateau Stopping Condition (Procedural Policy):**
+   - Heuristic rule: terminate search when marginal gain $\Delta \text{AUC} < 0.001$ or turns negative.
+   - In EXP_002, moving from $m=10.0 \to m=20.0$ resulted in $\Delta = -0.00063$, cleanly identifying the peak and stopping 1D grid expansion. This check was evaluated post-hoc and documented rather than automated via runtime trigger.
 
 ### 3. Execution State — What Remains Unexecuted
 To maintain absolute factual integrity, the following items are documented as currently unexecuted:
-- **Task `t_exp_003` (GBDT Interaction Model):** Formally specified and queued in the backlog, but not dispatched or executed on the Hermes Kanban board. Execution was halted intentionally by the 2-cycle milestone stopping condition.
-- **External Holdout Test Evaluation:** Evaluation was performed exclusively via 5-Fold Stratified Cross-Validation on the training distribution. Testing on a separate out-of-sample test set (e.g., temporal or out-of-distribution holdout) remains unexecuted.
+- **Task `t_exp_003` (GBDT Interaction Model):** Formally specified and queued in the backlog table, but **NOT created or dispatched on the Hermes Kanban board** (confirmed via `hermes kanban list`). It remains completely unexecuted per the 2-cycle milestone budget. Dispatch requires explicit user authorization.
+- **External Holdout Test Evaluation:** Evaluation was performed exclusively via 5-Fold Stratified Cross-Validation on the synthetic training distribution. Testing on a separate out-of-sample test set (e.g., temporal or out-of-distribution holdout) remains unexecuted.
 - **2D Hyperparameter Grid for Micci-Barreca Smoothing ($k, f$):** Omitted in favor of the computationally lighter 1D M-estimate sweep ($O(G \cdot N)$ vs $O(G_k \cdot G_f \cdot N)$), as justified in `relay_kiza.md`.
