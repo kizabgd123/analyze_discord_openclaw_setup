@@ -92,11 +92,11 @@ Phase 4: Acceptance Test on Kanban Board
 - **Status:** complete ✅
 
 ### Phase R5: Persistent Knowledge Audit & Comprehensive Acceptance Report
-- [ ] Verify all 7 pillars have complete file-backed persistence without data loss
-- [ ] Pre-commit hook & JudgeGuard post-check
-- [ ] Generate comprehensive acceptance artifact `AUTONOMOUS_RESEARCH_ENGINE_DELIVERABLES.md`
-- [ ] Git commit all changes
-- **Status:** pending
+- [x] Verify all 7 pillars have complete file-backed persistence without data loss
+- [x] Pre-commit hook & JudgeGuard post-check
+- [x] Generate comprehensive acceptance artifact `AUTONOMOUS_RESEARCH_ENGINE_DELIVERABLES.md`
+- [x] Git commit all changes
+- **Status:** complete ✅
 1. How to coordinate Research Relay without bot-to-bot chat?
    *Answer*: Via Hermes Kanban cards, artifact references (`discoveries/<agent>.md`), and dependency gating. Agents write to disk; next stage reads from disk.
 2. How to ensure independent discovery?
