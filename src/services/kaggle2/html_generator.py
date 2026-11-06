@@ -191,6 +191,26 @@ def render_html_dashboard(state: Dict[str, Any], output_path: Path) -> Path:
         else:
             verdict_badge = f'<span class="badge badge-info">{verdict}</span>'
 
+        verdict_vs_base = exp.get("verdict_vs_base", "N/A")
+        paired_diffs = exp.get("paired_diffs", [])
+        diff_str = ""
+        if paired_diffs and any(d != 0.0 for d in paired_diffs):
+            mean_diff = sum(paired_diffs) / len(paired_diffs)
+            diff_sign = "+" if mean_diff > 0 else ""
+            diff_color = "#3fb950" if mean_diff > 0 else "#f85149"
+            diff_str = f"<br><small style='color: {diff_color}; font-weight: bold;'>Δ {diff_sign}{mean_diff:.5f}</small>"
+
+        if verdict_vs_base == "BETTER_CV":
+            verdict_base_badge = f'<span class="badge badge-better">BETTER_CV</span>{diff_str}'
+        elif verdict_vs_base == "WORSE_CV":
+            verdict_base_badge = f'<span class="badge badge-worse">WORSE_CV</span>{diff_str}'
+        elif verdict_vs_base == "INCONCLUSIVE_CV":
+            verdict_base_badge = f'<span class="badge badge-inconclusive">INCONCLUSIVE</span>{diff_str}'
+        elif verdict_vs_base == "BASELINE":
+            verdict_base_badge = '<span class="badge badge-baseline">BASELINE (Exp 0)</span>'
+        else:
+            verdict_base_badge = f'<span class="badge badge-info">{html.escape(str(verdict_vs_base))}</span>'
+
         code = exp.get("code")
         if code:
             hyp_display = f"{hyp}<br><details style='margin-top:6px;'><summary style='cursor:pointer; color:#58a6ff; font-size:11px;'>View Generated Code</summary><pre style='max-height:180px; overflow:auto; font-size:11px; background:#0d1117; padding:8px; border-radius:4px; text-align:left;'><code>{html.escape(code)}</code></pre></details>"
@@ -204,6 +224,7 @@ def render_html_dashboard(state: Dict[str, Any], output_path: Path) -> Path:
             <td>{verdict_badge}</td>
             <td><small>{deciding_reason}</small></td>
             <td><code>{cv_str}</code></td>
+            <td>{verdict_base_badge}</td>
             <td>{status_badge}</td>
             <td><small>{exit_str}</small></td>
             <td><small>{debug_str}</small></td>
@@ -241,17 +262,18 @@ def render_html_dashboard(state: Dict[str, Any], output_path: Path) -> Path:
             <thead>
                 <tr>
                     <th style="width: 5%;">Exp #</th>
-                    <th style="width: 25%;">Hypothesis</th>
-                    <th style="width: 10%;">Skeptic</th>
-                    <th style="width: 20%;">Deciding Reason</th>
-                    <th style="width: 12%;">Real CV (AUC)</th>
-                    <th style="width: 8%;">Status</th>
-                    <th style="width: 6%;">Exit</th>
-                    <th style="width: 6%;">Debug</th>
-                    <th style="width: 8%;">Timing</th>
+                    <th style="width: 23%;">Hypothesis</th>
+                    <th style="width: 9%;">Skeptic</th>
+                    <th style="width: 17%;">Deciding Reason</th>
+                    <th style="width: 10%;">Real CV (AUC)</th>
+                    <th style="width: 12%;">Verdict vs Base</th>
+                    <th style="width: 7%;">Status</th>
+                    <th style="width: 5%;">Exit</th>
+                    <th style="width: 5%;">Debug</th>
+                    <th style="width: 7%;">Timing</th>
                 </tr>
             </thead>
-            <tbody>{exp_rows or '<tr><td colspan="9">No experiments executed yet</td></tr>'}</tbody>
+            <tbody>{exp_rows or '<tr><td colspan="10">No experiments executed yet</td></tr>'}</tbody>
         </table>
     </div>
     {debug_html}
@@ -433,6 +455,11 @@ def render_html_dashboard(state: Dict[str, Any], output_path: Path) -> Path:
         .badge-academic {{ background: #0f4035; color: #56d364; }}
         .badge-repo {{ background: #343941; color: #c9d1d9; }}
         .badge-lesson {{ background: #3b2300; color: #ffa657; margin-left: 0.5rem; }}
+        .badge-engine {{ background: #1a365d; color: #63b3ed; border: 1px solid #2b6cb0; font-family: monospace; font-size: 0.78rem; }}
+        .badge-better {{ background: #1b4725; color: #48bb78; border: 1px solid #2f855a; }}
+        .badge-worse {{ background: #5c1d1d; color: #f56565; border: 1px solid #c53030; }}
+        .badge-inconclusive {{ background: #4a3e12; color: #ecc94b; border: 1px solid #b7791f; }}
+        .badge-baseline {{ background: #233044; color: #90cdf4; border: 1px solid #3182ce; }}
         .debug-attempts-container {{ margin-top: 1rem; }}
         .debug-card {{
             background: #1c1507;
@@ -540,6 +567,7 @@ def render_html_dashboard(state: Dict[str, Any], output_path: Path) -> Path:
             <div class="meta-bar">
                 <span><strong>Competition:</strong> {html.escape(competition)}</span>
                 <span><strong>Run ID:</strong> <code>{html.escape(run_id)}</code></span>
+                <span><strong>AI Engine:</strong> <span class="badge badge-engine">⚡ Antigravity agy (gemini-3.8-flash-high | kiza101288@gmail.com)</span></span>
                 <span><strong>Updated:</strong> {html.escape(timestamp)}</span>
             </div>
         </header>

@@ -20,10 +20,12 @@ logger = logging.getLogger("AgyClient")
 
 AGY_BIN = os.getenv("AGY_BIN", shutil.which("agy") or "/home/kizamladjanijebac/.local/bin/agy")
 
-# 4 Verified Antigravity Accounts from workspace configuration
+DEFAULT_AGY_ACCOUNT = os.getenv("AGY_ACCOUNT", "kiza101288@gmail.com")
+
+# Verified Antigravity Accounts with kiza101288@gmail.com as primary
 AGY_ACCOUNTS: List[str] = [
-    "promo@mrcleanervracar.com",
     "kiza101288@gmail.com",
+    "promo@mrcleanervracar.com",
     "lovajetu@gmail.com",
     "lifemysolver@gmail.com",
 ]
@@ -48,12 +50,12 @@ def query_agy_cli(
 ) -> str:
     """
     Executes a query via antigravity-cli (`agy`) in print mode (-p).
-    Used exclusively by Miki Nosonja to organize agents and synthesize final answers.
+    Used by all agents to organize, debate, and engineer Kaggle S6E11 solutions.
     """
     if not os.path.exists(AGY_BIN):
         raise FileNotFoundError(f"Antigravity CLI binarni fajl nije pronađen na {AGY_BIN}")
 
-    selected_account = account or get_next_agy_account()
+    selected_account = account or DEFAULT_AGY_ACCOUNT
     full_prompt = f"Instrukcija: {system}\n\nZadatak: {prompt}" if system else prompt
 
     cmd = [

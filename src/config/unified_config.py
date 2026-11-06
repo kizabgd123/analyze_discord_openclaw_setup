@@ -64,14 +64,18 @@ class AgyConfig(BaseModel):
         default_factory=lambda: os.getenv("AGY_BIN", shutil.which("agy") or "/home/kizamladjanijebac/.local/bin/agy"),
         description="Path to Antigravity CLI binary"
     )
+    primary_account: str = Field(
+        default_factory=lambda: os.getenv("AGY_ACCOUNT", "kiza101288@gmail.com"),
+        description="Primary Antigravity account"
+    )
     accounts: List[str] = Field(
         default=[
-            "promo@mrcleanervracar.com",
             "kiza101288@gmail.com",
+            "promo@mrcleanervracar.com",
             "lovajetu@gmail.com",
             "lifemysolver@gmail.com",
         ],
-        description="Verified accounts for Antigravity round-robin execution"
+        description="Verified accounts for Antigravity execution"
     )
     default_model: str = Field(
         default="gemini-3.8-flash-high",

@@ -153,26 +153,56 @@ def query_llm(
     system: Optional[str] = None,
     model: Optional[str] = None,
     temperature: float = 0.2,
-    timeout: int = 120,
-    prefer_cloud_ollama: bool = True,
+    timeout: int = 150,
+    prefer_agy: bool = True,
+    prefer_cloud_ollama: bool = False,
+    account: Optional[str] = None,
 ) -> str:
     """
     Unified LLM call:
-    - Other agents call Cloud Ollama with fallback to Gemini CLI (gemini-3.5-flash-lite).
+    - Primary: Antigravity CLI (`agy`) using `gemini-3.8-flash-high` and account `kiza101288@gmail.com`.
+    - Fallback 1: Cloud Ollama endpoint.
+    - Fallback 2: Official Gemini CLI (gemini-3.5-flash-lite).
     """
-    if prefer_cloud_ollama:
-        return query_ollama_cloud(
+    use_model = model or "gemini-3.8-flash-high"
+    selected_account = account or os.getenv("AGY_ACCOUNT", "kiza101288@gmail.com")
+
+    if prefer_agy and not prefer_cloud_ollama:
+        try:
+            from agy_client import query_agy_cli
+            res = query_agy_cli(
+                prompt=prompt,
+                system=system,
+                model=use_model,
+                account=selected_account,
+                timeout=timeout,
+            )
+            if res and len(res.strip()) > 0:
+                logger.info(f"[query_llm] Antigravity agy success | model={use_model} | account={selected_account}")
+                return res
+        except Exception as agy_err:
+            logger.warning(f"[query_llm] Antigravity agy failed ({agy_err}), falling back to Cloud Ollama...")
+
+    # Fallback 1: Cloud Ollama
+    try:
+        res = query_ollama_cloud(
             prompt=prompt,
             system=system,
             model=model,
             temperature=temperature,
-            timeout=timeout
+            timeout=timeout,
         )
+        if res and len(res.strip()) > 0:
+            return res
+    except Exception as ollama_err:
+        logger.warning(f"[query_llm] Ollama failed ({ollama_err}), falling back to Gemini CLI...")
+
+    # Fallback 2: Gemini CLI
     return query_gemini_cli(
         prompt=prompt,
         system=system,
         model=model or GEMINI_MODEL,
-        timeout=timeout
+        timeout=timeout,
     )
 
 
