@@ -1449,7 +1449,7 @@ kaggle_group = app_commands.Group(
 
 @kaggle_group.command(
     name="start",
-    description="🚀 Pokreni grounded Kaggle takmičarski workflow (Admin Only)"
+    description="🎙️ Pokreni grounded Kaggle takmičarski workflow (Admin Only)"
 )
 @app_commands.describe(
     competition="Naziv/slug takmičenja na Kaggle (npr. name-that-llm)"
@@ -1458,6 +1458,17 @@ async def kaggle_start_slash(interaction: discord.Interaction, competition: str)
     from src.controllers.kaggle_controller import kaggle_controller
     await kaggle_controller.handle_kaggle_start(interaction, competition)
 
+@kaggle_group.command(
+    name="push",
+    description="🚀 Pushuj generisani pipeline direktno na Kaggle compute (Admin Only)"
+)
+@app_commands.describe(
+    competition="Naziv/slug takmičenja na Kaggle (npr. name-that-llm)"
+)
+async def kaggle_push_slash(interaction: discord.Interaction, competition: str):
+    from src.controllers.kaggle_controller import kaggle_controller
+    await kaggle_controller.handle_kaggle_push(interaction, competition)
+
 bot.tree.add_command(kaggle_group)
 
 @bot.group(name="kaggle", invoke_without_command=True)
@@ -1465,8 +1476,10 @@ async def kaggle_prefix_group(ctx):
     embed = discord.Embed(
         title="🏆 Kaggle Workflow Komande (Admin Only)",
         description="Dostupne komande za Kaggle:\n"
-                    "• `!kaggle start <competition>` — Pokreni grounded debatu i workflow za takmičenje\n"
-                    "• `/kaggle start <competition>` — Slash verzija",
+                    "• `!kaggle start <competition>` — Pokreni grounded debatu za takmičenje\n"
+                    "• `!kaggle push <competition>` — Pushuj direktno na Kaggle compute bez debate\n"
+                    "• `/kaggle start <competition>` — Slash verzija za debatu\n"
+                    "• `/kaggle push <competition>` — Slash verzija za direktan push",
         color=0x20BEFF
     )
     await ctx.send(embed=embed)
@@ -1475,6 +1488,11 @@ async def kaggle_prefix_group(ctx):
 async def kaggle_start_prefix(ctx, competition: str):
     from src.controllers.kaggle_controller import kaggle_controller
     await kaggle_controller.handle_kaggle_start_prefix(ctx, competition)
+
+@kaggle_prefix_group.command(name="push")
+async def kaggle_push_prefix(ctx, competition: str):
+    from src.controllers.kaggle_controller import kaggle_controller
+    await kaggle_controller.handle_kaggle_push_prefix(ctx, competition)
 
 # ── 10. PREFIX COMMANDS COMPATIBILITY (ZA `!` PREFIKS) ──
 

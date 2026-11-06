@@ -1,7 +1,8 @@
 .env
 venv/
+artifacts/kaggle/name-that-llm/output/
+artifacts/kaggle/s6e11/data/
 __pycache__/
 *.pyc
 .DS_Store
 *.log
-venv/

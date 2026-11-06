@@ -1,0 +1,17 @@
+{
+  "id": "kiza123123/openclaw-name-that-llm-validation",
+  "title": "Openclaw Name That Llm Validation",
+  "code_file": "pipeline.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_gpu_enabled": true,
+  "enable_gpu": true,
+  "is_internet_enabled": false,
+  "enable_internet": false,
+  "machine_shape": "NvidiaTeslaT4",
+  "competition_sources": [
+    "name-that-llm"
+  ],
+  "dataset_sources": [],
+  "model_sources": []
+}

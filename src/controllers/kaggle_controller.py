@@ -435,6 +435,148 @@ class KaggleController:
 
         asyncio.create_task(self._run_debate_task(ctx.channel, comp))
 
+    async def handle_kaggle_push(self, interaction: discord.Interaction, competition: str):
+        """Pushes current pipeline code directly to Kaggle remote compute without running debate."""
+        try:
+            comp = kaggle_service.validate_slug(competition)
+        except ValueError as val_err:
+            await interaction.response.send_message(
+                f"⚠️ Nevalidan naziv takmičenja: {val_err}", ephemeral=True
+            )
+            return
+
+        if not check_admin_auth(interaction):
+            await interaction.response.send_message(
+                "⛔ Pristup odbijen: Niste autorizovani admin za /kaggle push.", ephemeral=True
+            )
+            return
+
+        await interaction.response.defer(ephemeral=False)
+        from src.services.kaggle_kernel_service import kaggle_kernel_service, generate_kernel_metadata
+        import json
+
+        comp_dir = Path("/home/kizamladjanijebac/Desktop/discord-openclaw/artifacts/kaggle") / comp
+        pipeline_file = comp_dir / "pipeline.py"
+
+        if not pipeline_file.exists():
+            await interaction.followup.send(
+                f"❌ Pipeline fajl `{pipeline_file}` ne postoji. Prvo pokrenite ili sačuvajte kod.",
+                ephemeral=False,
+            )
+            return
+
+        try:
+            quota = await kaggle_kernel_service.get_quota()
+            gpu_remaining = quota.get("GPU", {}).get("remaining", 0.0)
+
+            kernel_slug = f"openclaw-{comp}-validation".replace("_", "-")
+            meta = generate_kernel_metadata(
+                competition=comp,
+                kernel_slug=kernel_slug,
+                code_file="pipeline.py",
+                gpu_type="NvidiaTeslaT4",
+            )
+            # Ensure local competition sources are clean
+            meta["dataset_sources"] = []
+            meta["model_sources"] = []
+
+            meta_file = comp_dir / "kernel-metadata.json"
+            meta_file.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+
+            push_res = await kaggle_kernel_service.push_kernel(comp_dir)
+
+            action_view = KaggleActionView(competition=comp, code_path=str(pipeline_file), kernel_slug=kernel_slug)
+
+            embed = discord.Embed(
+                title=f"🚀 PUSHOVANO NA KAGGLE TRENING/VALIDACIJU: {comp}",
+                description=(
+                    f"🔗 **URL:** https://www.kaggle.com/code/{meta['id']}\n"
+                    f"⚙️ **GPU Akcelerator:** `{meta['machine_shape']}`\n"
+                    f"⏳ **GPU Kvota:** `{gpu_remaining:.2f}h` preostalo\n"
+                    f"🌐 **Internet:** `OFFLINE` (Pravilo takmičenja)\n\n"
+                    f"📡 Status: **KernelWorkerStatus.RUNNING**\n"
+                    f"OpenClaw prati izvršavanje u pozadini i ponudiće submisiju kada završi."
+                ),
+                color=0x20BEFF,
+            )
+            embed.set_footer(text="OpenClaw Kaggle Engine • Live Compute • Zero Mock")
+            await interaction.followup.send(embed=embed, view=action_view)
+
+            asyncio.create_task(
+                action_view._monitor_kernel_lifecycle(interaction.channel, comp, kernel_slug, comp_dir)
+            )
+
+        except Exception as exc:
+            logger.error(f"Kaggle push failed: {exc}", exc_info=True)
+            await interaction.followup.send(f"❌ Greška pri pushovanju na Kaggle: {exc}", ephemeral=False)
+
+    async def handle_kaggle_push_prefix(self, ctx, competition: str):
+        """Prefix command (!kaggle push) variant for direct push to Kaggle remote compute."""
+        try:
+            comp = kaggle_service.validate_slug(competition)
+        except ValueError as val_err:
+            await ctx.send(f"⚠️ Nevalidan naziv takmičenja: {val_err}")
+            return
+
+        if not check_admin_auth(ctx):
+            await ctx.send("⛔ Pristup odbijen: Niste autorizovani admin za !kaggle push.")
+            return
+
+        status_msg = await ctx.send(f"⏳ Pripremam i pushujem kernel za `{comp}` na Kaggle compute...")
+        from src.services.kaggle_kernel_service import kaggle_kernel_service, generate_kernel_metadata
+        import json
+
+        comp_dir = Path("/home/kizamladjanijebac/Desktop/discord-openclaw/artifacts/kaggle") / comp
+        pipeline_file = comp_dir / "pipeline.py"
+
+        if not pipeline_file.exists():
+            await status_msg.edit(content=f"❌ Pipeline fajl `{pipeline_file}` ne postoji.")
+            return
+
+        try:
+            quota = await kaggle_kernel_service.get_quota()
+            gpu_remaining = quota.get("GPU", {}).get("remaining", 0.0)
+
+            kernel_slug = f"openclaw-{comp}-validation".replace("_", "-")
+            meta = generate_kernel_metadata(
+                competition=comp,
+                kernel_slug=kernel_slug,
+                code_file="pipeline.py",
+                gpu_type="NvidiaTeslaT4",
+            )
+            meta["dataset_sources"] = []
+            meta["model_sources"] = []
+
+            meta_file = comp_dir / "kernel-metadata.json"
+            meta_file.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+
+            push_res = await kaggle_kernel_service.push_kernel(comp_dir)
+
+            action_view = KaggleActionView(competition=comp, code_path=str(pipeline_file), kernel_slug=kernel_slug)
+
+            embed = discord.Embed(
+                title=f"🚀 PUSHOVANO NA KAGGLE TRENING/VALIDACIJU: {comp}",
+                description=(
+                    f"🔗 **URL:** https://www.kaggle.com/code/{meta['id']}\n"
+                    f"⚙️ **GPU Akcelerator:** `{meta['machine_shape']}`\n"
+                    f"⏳ **GPU Kvota:** `{gpu_remaining:.2f}h` preostalo\n"
+                    f"🌐 **Internet:** `OFFLINE` (Pravilo takmičenja)\n\n"
+                    f"📡 Status: **KernelWorkerStatus.RUNNING**\n"
+                    f"OpenClaw prati izvršavanje u pozadini i ponudiće submisiju kada završi."
+                ),
+                color=0x20BEFF,
+            )
+            embed.set_footer(text="OpenClaw Kaggle Engine • Live Compute • Zero Mock")
+            await status_msg.edit(content=None, embed=embed, view=action_view)
+
+            asyncio.create_task(
+                action_view._monitor_kernel_lifecycle(ctx.channel, comp, kernel_slug, comp_dir)
+            )
+
+        except Exception as exc:
+            logger.error(f"Kaggle push failed: {exc}", exc_info=True)
+            await status_msg.edit(content=f"❌ Greška pri pushovanju na Kaggle: {exc}")
+
     async def _run_debate_task(self, channel, comp: str):
         """Executes grounded debate pipeline and posts round-by-round progress to Discord."""
         from src.services.kaggle_debate_service import kaggle_debate_service
