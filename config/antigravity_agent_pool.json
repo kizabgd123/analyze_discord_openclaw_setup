@@ -1,0 +1,206 @@
+{
+  "_comment": "Antigravity Agent Manager — Layer A Development Agent Pool Manifest",
+  "_version": "2.0.0",
+  "layer": "LAYER_A_ANTIGRAVITY_AGENT_MANAGER",
+  "isolation_policy": "STRICT_DIRECTORY_AND_FILE_OWNERSHIP",
+  "coordination": {
+    "lock_dir": ".locks",
+    "conflict_detection": true,
+    "require_quality_guard_approval": true
+  },
+  "agents": {
+    "frontend-agent": {
+      "role": "Frontend Presentation Engineer",
+      "scope": "presentation_layer",
+      "allowed_paths": [
+        "src/services/kaggle2/html_generator.py",
+        "docs/",
+        ".vite/"
+      ],
+      "forbidden_paths": [
+        "artifacts/kaggle/",
+        "src/services/kaggle2/runner.py",
+        "src/services/kaggle2/scaffold_runner.py",
+        "tests/"
+      ],
+      "read_only_paths": [
+        "artifacts/kaggle/s6e11/exp0_baseline/",
+        "config/"
+      ],
+      "model_configuration": {
+        "model": "gemini-3.8-flash-high",
+        "account": "kiza101288@gmail.com",
+        "temperature": 0.2
+      },
+      "verification_hooks": [
+        "judge_guard_pre_check",
+        "html_syntax_check",
+        "judge_guard_post_check"
+      ],
+      "max_concurrency": 1,
+      "shared_resource_restrictions": [
+        "no_concurrent_writes_on_shared_files",
+        "no_training_script_execution"
+      ],
+      "responsibilities": [
+        "Single-page responsive dashboard rendering",
+        "HTML/CSS mobile compatibility",
+        "Real-time transcript visualization"
+      ]
+    },
+    "backend-agent": {
+      "role": "Core Backend & Experiment Systems Engineer",
+      "scope": "backend_services",
+      "allowed_paths": [
+        "src/services/kaggle2/",
+        "src/controllers/",
+        "src/config/",
+        "gemini_client.py",
+        "agy_client.py",
+        "a2tools_runtime.py"
+      ],
+      "forbidden_paths": [
+        "artifacts/kaggle/s6e11/exp0_baseline/",
+        "tests/test_kaggle2_v2_adversarial.py",
+        "tests/test_firejail_sandbox.py"
+      ],
+      "read_only_paths": [
+        "artifacts/kaggle/s6e11/exp0_baseline/folds.json",
+        "config/"
+      ],
+      "model_configuration": {
+        "model": "gemini-3.8-flash-high",
+        "account": "kiza101288@gmail.com",
+        "temperature": 0.2
+      },
+      "verification_hooks": [
+        "judge_guard_pre_check",
+        "pytest_unit_tests",
+        "judge_guard_post_check"
+      ],
+      "max_concurrency": 1,
+      "shared_resource_restrictions": [
+        "no_concurrent_writes_on_shared_files",
+        "single_writer_lock"
+      ],
+      "responsibilities": [
+        "AgentTeamOrchestrator lifecycle and state management",
+        "Firejail sandbox integration",
+        "LLM client routing and failover"
+      ]
+    },
+    "intercom-agent": {
+      "role": "Discord Bot & Integration Engineer",
+      "scope": "intercom_interface",
+      "allowed_paths": [
+        "discord_bot.py",
+        "src/discord/",
+        "src/routes/slash_routes.py",
+        "manage_bot.sh",
+        "start_discord_bot.sh"
+      ],
+      "forbidden_paths": [
+        "src/services/kaggle2/runner.py",
+        "artifacts/kaggle/"
+      ],
+      "read_only_paths": [
+        "config/"
+      ],
+      "model_configuration": {
+        "model": "gemini-3.8-flash-high",
+        "account": "kiza101288@gmail.com",
+        "temperature": 0.2
+      },
+      "verification_hooks": [
+        "judge_guard_pre_check",
+        "discord_command_test",
+        "judge_guard_post_check"
+      ],
+      "max_concurrency": 1,
+      "shared_resource_restrictions": [
+        "no_concurrent_writes_on_shared_files",
+        "no_direct_kaggle_access"
+      ],
+      "responsibilities": [
+        "Discord slash command handlers and interaction deferrals",
+        "User permissions and admin gating",
+        "Interactive button views and message formatting"
+      ]
+    },
+    "memory-agent": {
+      "role": "Knowledge & NotebookLM Integration Engineer",
+      "scope": "knowledge_retrieval",
+      "allowed_paths": [
+        "src/services/kaggle2/notebook_client.py",
+        "src/services/kaggle2/lesson_service.py",
+        "src/services/kaggle2/knowledge_service.py",
+        "src/repositories/",
+        "antigravity_rag.db"
+      ],
+      "forbidden_paths": [
+        "artifacts/kaggle/s6e11/exp0_baseline/",
+        "src/services/kaggle2/evaluator.py"
+      ],
+      "read_only_paths": [
+        "artifacts/kaggle/s6e11/exp0_baseline/folds.json",
+        "config/"
+      ],
+      "model_configuration": {
+        "model": "gemini-3.8-flash-high",
+        "account": "kiza101288@gmail.com",
+        "temperature": 0.2
+      },
+      "verification_hooks": [
+        "judge_guard_pre_check",
+        "notebooklm_auth_check",
+        "judge_guard_post_check"
+      ],
+      "max_concurrency": 1,
+      "shared_resource_restrictions": [
+        "no_concurrent_writes_on_shared_files",
+        "read_only_evaluator_access"
+      ],
+      "responsibilities": [
+        "NotebookLM CLI queries and source synchronization",
+        "RAG database maintenance and EDV contracts",
+        "Lesson postmortem ingestion"
+      ]
+    },
+    "quality-guard": {
+      "role": "Independent Verification & Test Architect",
+      "scope": "verification_and_testing",
+      "allowed_paths": [
+        "tests/",
+        "judge_guard.py",
+        ".githooks/",
+        "WORK_LOG.md"
+      ],
+      "forbidden_paths": [
+        "artifacts/kaggle/s6e11/exp0_baseline/"
+      ],
+      "read_only_paths": [
+        "artifacts/kaggle/s6e11/exp0_baseline/",
+        "config/"
+      ],
+      "model_configuration": {
+        "model": "gemini-3.8-flash-high",
+        "account": "kiza101288@gmail.com",
+        "temperature": 0.0
+      },
+      "verification_hooks": [
+        "judge_guard_pre_check",
+        "full_pytest_regression_run",
+        "judge_guard_post_check"
+      ],
+      "max_concurrency": 1,
+      "shared_resource_restrictions": [
+        "no_tampering_with_frozen_folds_or_baseline"
+      ],
+      "responsibilities": [
+        "Adversarial integrity test suite maintenance",
+        "JudgeGuard pre-action and post-action verification",
+        "Enforcing immutable baseline protections"
+      ]
+    }
+  }
+}

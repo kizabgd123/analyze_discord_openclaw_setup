@@ -213,9 +213,55 @@ def render_html_dashboard(state: Dict[str, Any], output_path: Path) -> Path:
 
         code = exp.get("code")
         if code:
-            hyp_display = f"{hyp}<br><details style='margin-top:6px;'><summary style='cursor:pointer; color:#58a6ff; font-size:11px;'>View Generated Code</summary><pre style='max-height:180px; overflow:auto; font-size:11px; background:#0d1117; padding:8px; border-radius:4px; text-align:left;'><code>{html.escape(code)}</code></pre></details>"
+            code_block = f"<br><details style='margin-top:6px;'><summary style='cursor:pointer; color:#58a6ff; font-size:11px;'>View Generated Code</summary><pre style='max-height:180px; overflow:auto; font-size:11px; background:#0d1117; padding:8px; border-radius:4px; text-align:left;'><code>{html.escape(code)}</code></pre></details>"
         else:
-            hyp_display = hyp
+            code_block = ""
+
+        lineage = exp.get("debate_lineage")
+        lineage_html = ""
+        if lineage:
+            hyp_id = html.escape(str(lineage.get("hypothesis_id") or exp.get("hypothesis_id") or ""))
+            model_id = html.escape(str(lineage.get("model") or "gemini-3.8-flash-high"))
+            account_id = html.escape(str(lineage.get("account") or "kiza101288@gmail.com"))
+            prompt_hashes = lineage.get("prompt_sha256", {})
+            p_items = "".join([f"<li><strong>{html.escape(k)}:</strong> <code>{html.escape(v[:12])}...</code></li>" for k, v in prompt_hashes.items() if v])
+
+            gate = lineage.get("policy_gate", {})
+            gate_auth = gate.get("authorized", True)
+            gate_badge = '<span class="badge badge-success">GATE: APPROVED</span>' if gate_auth else '<span class="badge badge-blocked">GATE: BLOCKED</span>'
+            gate_reason_text = html.escape(str(gate.get("reason") or ""))
+
+            objs = lineage.get("objections", [])
+            obj_rows = ""
+            for o in objs:
+                oid = html.escape(str(o.get("objection_id", "OBJ")))
+                sev = html.escape(str(o.get("severity", "CRITICAL")))
+                sev_badge = f'<span class="badge badge-{"danger" if sev=="CRITICAL" else "warning"}">{sev}</span>'
+                claim = html.escape(str(o.get("original_claim", "")))
+                obj_rows += f"<li><strong>{oid}</strong> {sev_badge}: {claim}</li>"
+
+            resolutions = lineage.get("resolutions", [])
+            res_rows = ""
+            for r in resolutions:
+                roid = html.escape(str(r.get("objection_id", "OBJ")))
+                rst = html.escape(str(r.get("status", "")))
+                rst_badge = f'<span class="badge badge-{"success" if rst=="RESOLVED" else "danger"}">{rst}</span>'
+                res_rows += f"<li><strong>{roid}</strong> {rst_badge}</li>"
+
+            lineage_html = f"""
+            <details style='margin-top:6px;'>
+                <summary style='cursor:pointer; color:#79c0ff; font-size:11px;'>🛡️ Debate Lineage & Policy Gate</summary>
+                <div style='background:#161b22; padding:8px; border-radius:4px; font-size:11px; margin-top:4px;'>
+                    <div><strong>ID:</strong> <code>{hyp_id}</code> | <strong>Model:</strong> {model_id} ({account_id})</div>
+                    <div style='margin-top:4px;'>{gate_badge} <small>{gate_reason_text}</small></div>
+                    {f"<div style='margin-top:4px;'><strong>Prompt SHA-256:</strong><ul style='margin:2px 0 0 16px; padding:0;'>{p_items}</ul></div>" if p_items else ""}
+                    {f"<div style='margin-top:4px;'><strong>Objections ({len(objs)}):</strong><ul style='margin:2px 0 0 16px; padding:0;'>{obj_rows}</ul></div>" if obj_rows else ""}
+                    {f"<div style='margin-top:4px;'><strong>Resolutions:</strong><ul style='margin:2px 0 0 16px; padding:0;'>{res_rows}</ul></div>" if res_rows else ""}
+                </div>
+            </details>
+            """
+
+        hyp_display = f"{hyp}{code_block}{lineage_html}"
 
         exp_rows += f"""
         <tr>

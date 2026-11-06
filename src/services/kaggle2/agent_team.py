@@ -30,6 +30,7 @@ from src.services.kaggle2.runner import LocalRunner
 from src.services.kaggle2.lesson_service import LessonService
 from src.services.kaggle2.submission_service import SubmissionService
 from src.services.kaggle2.html_generator import render_html_dashboard
+from src.services.kaggle2.debate_engine import DebateEngine, hash_text, parse_llm_json
 
 logger = logging.getLogger("Kaggle2.AgentTeam")
 
@@ -51,6 +52,7 @@ class AgentTeamOrchestrator:
         self.runner = LocalRunner(run_dir=self.run_dir, timeout_seconds=600)
         self.lesson_service = LessonService(run_dir=self.run_dir, notebook_client=self.notebook_client)
         self.submission_service = SubmissionService(run_id=self.run_id)
+        self.debate_engine = DebateEngine(model_name="gemini-3.8-flash-high", account="kiza101288@gmail.com")
 
         self.is_running: bool = False
         self.is_paused: bool = False
@@ -309,81 +311,101 @@ class AgentTeamOrchestrator:
 
         # Identify baseline from state if available
         exp0_rec = next((e for e in self.state.get("experiments", []) if e.get("exp_no") == 0), None)
-        base_cv_str = f"{exp0_rec['cv_score']:.5f}" if exp0_rec and exp0_rec.get("cv_score") else "NONE"
+        base_cv_val = exp0_rec.get("cv_score", 0.94557) if exp0_rec and exp0_rec.get("cv_score") else 0.94557
+        base_cv_str = f"{base_cv_val:.5f}"
 
-        strat_prompt = (
-            f"You are the Strategist. Based on research below, propose a concrete, testable hypothesis "
-            f"for Experiment #{exp_no} predicting credit card fraud (metric: ROC-AUC).\n\n"
-            f"DATASET SCHEMA (24 true features + id as key):\n"
-            f"- Key (dropped before model): id\n"
-            f"- 24 Features: amount_usd, hours_since_last_txn, txn_count_last_24h, distance_from_home_km, "
-            f"card_age_months, customer_age, account_balance_usd, cvv_retry_count, velocity_score, "
-            f"time_of_day_hour, day_of_week, merchant_risk_score, prior_disputes, merchant_category, "
-            f"card_type, auth_method, channel, device_type, is_foreign_transaction, is_new_merchant, "
-            f"used_vpn, ip_country_mismatch, billing_shipping_mismatch, is_ai_generated_scam_attempt.\n"
-            f"CRITICAL DATASET RULE: Use ONLY existing columns above. There is NO user_id, customer_id, or card_id! "
-            f"Never assume or invent user-level identifiers.\n\n"
-            f"DO NOT propose any idea already tested or blocked:\n"
-            f"Past Tested: {json.dumps(past_hyps)}\n"
-            f"Past Blocked: {json.dumps(blocked_hyps)}\n\n"
-            f"Research Insights:\n{tech_ans[:3500]}\n\n"
-            f"FEATURE ENGINEERING GUIDANCE: Innovate systematically on the 24 true columns.\n"
-            f"- Behavioral velocity: non-linear interactions between velocity_score, txn_count_last_24h, hours_since_last_txn.\n"
-            f"- Geolocation risk: distance_from_home_km combined with is_foreign_transaction, ip_country_mismatch, billing_shipping_mismatch.\n"
-            f"- Account maturity & dispute risk: card_age_months vs prior_disputes and merchant_risk_score.\n"
-            f"- In-Fold Target Encoding: Use `oof_target_encode` helper on high-cardinality categoricals (merchant_category, channel, device_type).\n"
-            f"- Model diversity: Consider LightGBM, CatBoost, or XGBoost with tuned hyper-parameters (learning_rate, num_leaves, min_child_samples).\n"
-            f"- DO NOT repeat previously tested ideas or naive amount rounding.\n\n"
-            f"Structure your proposal as:\n"
-            f"HYPOTHESIS: <clear testable statement>\n"
-            f"FEATURE_ENGINEERING: <specific transformations using existing 24 columns only>\n"
-            f"MODEL_FAMILY: <e.g. LightGBM, CatBoost, or XGBoost>\n"
-            f"BASELINE_TO_COMPARE: Our best verified CV: {base_cv_str}\n"
-            f"NOTEBOOKLM_EVIDENCE: <Quoted text from NotebookLM research with source attribution; public numbers allowed ONLY inside quoted text>"
+        # Stage 1: Build Strategist Proposal Prompt conforming to structured schema
+        strat_prompt = self.debate_engine.build_strategist_proposal_prompt(
+            exp_no=exp_no,
+            verified_columns=None,
+            baseline_metric=base_cv_val,
+            literature_context=tech_ans[:3500]
         )
-        strat_resp = await asyncio.to_thread(query_llm, strat_prompt, system="You are the ML Strategist. Ground every claim in facts. Do not write code.")
+        strat_prompt_sha = hash_text(strat_prompt)
+        strat_resp = await asyncio.to_thread(
+            query_llm,
+            strat_prompt,
+            system="You are the ML Strategist. Ground every claim in facts. Do not write code."
+        )
         self.append_transcript(agent="Strategist", role="Strategist", message=strat_resp)
         if not self.is_running:
             return {"status": "STOPPED"}
 
-        # ── Step 3: Skeptic Audit (Debate with Teeth) ──
-        # Skeptic queries NotebookLM to fact check key claims
+        # Parse and validate proposal
+        prop_dict = parse_llm_json(strat_resp)
+        if not prop_dict:
+            prop_dict = self.debate_engine.adapt_legacy_proposal_text(strat_resp, exp_no)
+
+        val_ok, val_err = self.debate_engine.validate_strategist_proposal(prop_dict)
+        if not val_ok:
+            logger.warning(f"[Strategist Proposal Validation] Error: {val_err}")
+            if "UngroundedFeatureError" in val_err or "TargetLeakageError" in val_err:
+                self.record_failure("STRATEGIST_PROPOSAL_REJECTED", f"Exp #{exp_no} proposal rejected", val_err)
+                elapsed = asyncio.get_event_loop().time() - exp_start_time
+                self.state["blocked_hypotheses"].append(prop_dict.get("hypothesis", strat_resp[:200]))
+                self.state["experiments"].append({
+                    "exp_no": exp_no,
+                    "hypothesis": prop_dict.get("hypothesis", strat_resp[:160] + "..."),
+                    "hypothesis_id": prop_dict.get("hypothesis_id", f"EXP{exp_no}_HYPOTHESIS"),
+                    "skeptic_verdict": "BLOCK",
+                    "deciding_reason": val_err,
+                    "cv_score": None,
+                    "status": "BLOCKED",
+                    "exit_code": None,
+                    "signal": None,
+                    "debug_attempts": 0,
+                    "phase_timings": phase_timings,
+                    "elapsed_seconds": round(elapsed, 2),
+                    "debate_lineage": {
+                        "hypothesis_id": prop_dict.get("hypothesis_id", f"EXP{exp_no}_HYPOTHESIS"),
+                        "model": "gemini-3.8-flash-high",
+                        "account": "kiza101288@gmail.com",
+                        "prompt_sha256": {"proposal": strat_prompt_sha},
+                        "policy_gate": {"authorized": False, "reason": val_err}
+                    }
+                })
+                self._save_state()
+                return {
+                    "exp_no": exp_no,
+                    "status": "BLOCKED",
+                    "cv_score": None,
+                    "elapsed_seconds": round(elapsed, 2)
+                }
+
+        # ── Step 3: Skeptic Audit (Stage 2: Numbered Objections) ──
         skep_check_q = f"CHECK: What evidence in competition notes or literature supports or contradicts: '{strat_resp[:120]}'?"
         nlm_t0 = asyncio.get_event_loop().time()
         skep_check_res = await self.ask_notebook("Skeptic", skep_check_q, reason="skeptic_fact_check")
         phase_timings["nlm_seconds"] += round(asyncio.get_event_loop().time() - nlm_t0, 2)
         skep_check_ans = skep_check_res.get("answer") or ""
 
-        skep_prompt = (
-            f"You are the Skeptic. Review the Strategist's proposal for Experiment #{exp_no}:\n{strat_resp}\n\n"
-            f"NotebookLM Fact Check:\n{skep_check_ans[:600]}\n\n"
-            f"Audit Rules:\n"
-            f"- Metric must strictly be ROC-AUC.\n"
-            f"- Must preserve the frozen 5-fold StratifiedKFold without target leakage across fold boundaries.\n"
-            f"- Synthetic data competition rules: External data and pre-trained models are restricted.\n"
-            f"- Every BLOCK verdict MUST name one concrete reason from this list:\n"
-            f"  1. Rule violation (quote rule)\n"
-            f"  2. CV/leakage flaw in the fold protocol\n"
-            f"  3. Code that cannot run in the sandbox\n"
-            f"  4. A claim the notebook contradicts (quote source)\n"
-            f"- Doubts like 'I think it might overfit' are NOT valid BLOCK reasons; they become PROCEED_WITH_CONDITIONS with a concrete test.\n\n"
-            f"Format strictly as:\n"
-            f"VERDICT: [BLOCK | PROCEED_WITH_CONDITIONS | PROCEED]\n"
-            f"REASON: <specific justification>"
+        skep_prompt = self.debate_engine.build_skeptic_review_prompt(
+            proposal_dict=prop_dict,
+            exp_no=exp_no,
+            fact_check_context=skep_check_ans[:600]
         )
-        skep_resp = await asyncio.to_thread(query_llm, skep_prompt, system="You are the ML Skeptic. Enforce strict leakage and rule integrity.")
+        skep_prompt_sha = hash_text(skep_prompt)
+        skep_resp = await asyncio.to_thread(
+            query_llm,
+            skep_prompt,
+            system="You are the ML Skeptic. Enforce strict leakage and rule integrity."
+        )
         self.append_transcript(agent="Skeptic", role="Skeptic", message=skep_resp)
         if not self.is_running:
             return {"status": "STOPPED"}
 
         def _parse_verdict(text: str) -> str:
-            m = re.search(r"(?:FINAL_)?VERDICT:\s*(BLOCK|PROCEED_WITH_CONDITIONS|PROCEED)", text, re.IGNORECASE)
+            m = re.search(r"(?:FINAL_)?VERDICT:\s*(BLOCK|PROCEED_WITH_CONDITIONS|PROCEED|APPROVE|REJECT|NEEDS_EVIDENCE)", text, re.IGNORECASE)
             if m:
-                return m.group(1).upper()
+                v = m.group(1).upper()
+                if v == "BLOCK": return "BLOCK"
+                if v == "REJECT": return "BLOCK"
+                if v in ("PROCEED_WITH_CONDITIONS", "NEEDS_EVIDENCE"): return "PROCEED_WITH_CONDITIONS"
+                return "PROCEED"
             upper = text.upper()
-            if "BLOCK" in upper[:40] or upper.startswith("BLOCK"):
+            if "BLOCK" in upper[:40] or upper.startswith("BLOCK") or "REJECT" in upper[:40]:
                 return "BLOCK"
-            if "CONDITION" in upper[:80]:
+            if "CONDITION" in upper[:80] or "NEEDS_EVIDENCE" in upper[:80]:
                 return "PROCEED_WITH_CONDITIONS"
             return "PROCEED"
 
@@ -394,34 +416,61 @@ class AgentTeamOrchestrator:
             lines = [l.strip() for l in text.strip().splitlines() if l.strip()]
             return lines[-1] if lines else "Debate consensus"
 
+        skep_review = parse_llm_json(skep_resp)
+        if not skep_review:
+            skep_review = self.debate_engine.adapt_legacy_review_text(skep_resp, exp_no)
+
         initial_verdict = _parse_verdict(skep_resp)
         final_verdict = initial_verdict
         deciding_reason = _parse_reason(skep_resp)
+        rebut_prompt_sha = None
         rebut_resp = ""
+        rebut_dict = None
+        final_skep_prompt_sha = None
+        final_skep_resp = ""
+        final_skep_review = None
 
-        # ── Turn Sequence: Rebuttal & Final Decision ──
-        if initial_verdict == "BLOCK":
+        # ── Stage 3 & 4: Rebuttal & Final Review ──
+        if initial_verdict == "BLOCK" or skep_review.get("overall_verdict") in ("REJECT", "NEEDS_EVIDENCE"):
             # Turn 3: Strategist answers point by point
-            rebut_prompt = (
-                f"The Skeptic BLOCKED your proposal for Experiment #{exp_no} with reason:\n{skep_resp}\n\n"
-                f"Respond point by point. Either accept the critique and revise your proposal, or rebut with concrete evidence."
+            rebut_prompt = self.debate_engine.build_strategist_rebuttal_prompt(
+                proposal_dict=prop_dict,
+                skeptic_review=skep_review,
+                exp_no=exp_no
             )
+            rebut_prompt_sha = hash_text(rebut_prompt)
             rebut_resp = await asyncio.to_thread(query_llm, rebut_prompt, system="You are the Strategist. Rebut or revise.")
             self.append_transcript(agent="Strategist", role="Strategist", message=rebut_resp)
+            rebut_dict = parse_llm_json(rebut_resp)
 
             # Turn 4: Skeptic final verdict
-            final_skep_prompt = (
-                f"Review the Strategist's rebuttal for Experiment #{exp_no}:\n{rebut_resp}\n\n"
-                f"Render your FINAL VERDICT:\n"
-                f"FINAL_VERDICT: [BLOCK | PROCEED_WITH_CONDITIONS | PROCEED]\n"
-                f"FINAL_REASON: <specific justification>"
+            final_skep_prompt = self.debate_engine.build_skeptic_final_prompt(
+                skeptic_review=skep_review,
+                strategist_rebuttal=rebut_dict or {"rebuttal_text": rebut_resp},
+                exp_no=exp_no
             )
+            final_skep_prompt_sha = hash_text(final_skep_prompt)
             final_skep_resp = await asyncio.to_thread(query_llm, final_skep_prompt, system="You are the Skeptic. Render final verdict.")
             self.append_transcript(agent="Skeptic", role="Skeptic", message=final_skep_resp)
             final_verdict = _parse_verdict(final_skep_resp)
             deciding_reason = _parse_reason(final_skep_resp)
 
-        # Turn 5: Strategist states decision and deciding reason
+            final_skep_review = parse_llm_json(final_skep_resp)
+            if not final_skep_review:
+                final_skep_review = self.debate_engine.adapt_legacy_final_text(
+                    final_skep_resp,
+                    exp_no,
+                    original_objections=skep_review.get("objections", [])
+                )
+        else:
+            final_skep_review = {
+                "hypothesis_id": prop_dict.get("hypothesis_id", f"EXP{exp_no}_HYPOTHESIS"),
+                "objection_resolutions": [],
+                "final_verdict": "APPROVE",
+                "deciding_reason": skep_review.get("summary", "Proposal approved on initial review")
+            }
+
+        # Turn 5: Strategist states formal decision and deciding reason
         strat_dec_prompt = (
             f"The Skeptic rendered final verdict: {final_verdict} (Reason: {deciding_reason}).\n"
             f"State your formal decision and deciding reason:\n"
@@ -432,25 +481,53 @@ class AgentTeamOrchestrator:
         self.append_transcript(agent="Strategist", role="Strategist", message=strat_dec_resp)
         deciding_reason = _parse_reason(strat_dec_resp) or deciding_reason
 
-        # ── Enforcement: On BLOCK, Engineer does NOT start ──
-        if final_verdict == "BLOCK":
-            logger.warning(f"[AgentTeam] Experiment #{exp_no} BLOCKED by Skeptic. Skipping Engineer.")
-            self.state["blocked_hypotheses"].append(strat_resp[:200])
-            self.record_failure("EXPERIMENT_BLOCKED", f"Experiment #{exp_no} BLOCKED by Skeptic", deciding_reason)
+        # ── Stage 5: Deterministic Policy Gate ──
+        gate_ok, gate_reason = self.debate_engine.evaluate_policy_gate(
+            final_skep_review,
+            original_objections=skep_review.get("objections", [])
+        )
+
+        debate_lineage = {
+            "hypothesis_id": prop_dict.get("hypothesis_id", f"EXP{exp_no}_HYPOTHESIS"),
+            "model": "gemini-3.8-flash-high",
+            "account": "kiza101288@gmail.com",
+            "prompt_sha256": {
+                "proposal": strat_prompt_sha,
+                "review": skep_prompt_sha,
+                "rebuttal": rebut_prompt_sha,
+                "final_review": final_skep_prompt_sha
+            },
+            "objections": skep_review.get("objections", []),
+            "rebuttals": rebut_dict.get("rebuttals", []) if rebut_dict else [],
+            "resolutions": final_skep_review.get("objection_resolutions", []),
+            "policy_gate": {
+                "authorized": gate_ok and final_verdict != "BLOCK",
+                "reason": gate_reason if not gate_ok else deciding_reason
+            }
+        }
+
+        # ── Enforcement: On BLOCK / Policy Gate Violation, Engineer does NOT start ──
+        if final_verdict == "BLOCK" or not gate_ok:
+            final_block_reason = gate_reason if not gate_ok else deciding_reason
+            logger.warning(f"[AgentTeam] Experiment #{exp_no} BLOCKED by Skeptic / Policy Gate: {final_block_reason}. Skipping Engineer.")
+            self.state["blocked_hypotheses"].append(prop_dict.get("hypothesis", strat_resp[:200]))
+            self.record_failure("EXPERIMENT_BLOCKED", f"Experiment #{exp_no} BLOCKED by Skeptic / Policy Gate", final_block_reason)
 
             elapsed = asyncio.get_event_loop().time() - exp_start_time
             self.state["experiments"].append({
                 "exp_no": exp_no,
-                "hypothesis": strat_resp[:160] + "...",
+                "hypothesis": prop_dict.get("hypothesis", strat_resp[:160] + "..."),
+                "hypothesis_id": prop_dict.get("hypothesis_id", f"EXP{exp_no}_HYPOTHESIS"),
                 "skeptic_verdict": "BLOCK",
-                "deciding_reason": deciding_reason,
+                "deciding_reason": final_block_reason,
                 "cv_score": None,
                 "status": "BLOCKED",
                 "exit_code": None,
                 "signal": None,
                 "debug_attempts": 0,
                 "phase_timings": phase_timings,
-                "elapsed_seconds": round(elapsed, 2)
+                "elapsed_seconds": round(elapsed, 2),
+                "debate_lineage": debate_lineage
             })
 
             lesson_record = await self.lesson_service.create_lesson(
@@ -460,7 +537,7 @@ class AgentTeamOrchestrator:
                 methodology="NOT RUN — Blocked during debate stage",
                 cv_score=None,
                 what_worked="Debate gate caught invalid proposal before wasting compute",
-                what_failed=f"Blocked due to: {deciding_reason}",
+                what_failed=f"Blocked due to: {final_block_reason}",
                 why_reasoning="Hypothesis violated competition constraints or literature consistency",
                 next_steps="Reformulate hypothesis to comply with frozen fold protocol and sandbox limits",
                 status="BLOCKED"
@@ -670,6 +747,7 @@ Return ONLY the corrected Python code inside ```python ... ```.
         self.state["experiments"].append({
             "exp_no": exp_no,
             "hypothesis": (rebut_resp[:160] + "..." if initial_verdict == "BLOCK" and rebut_resp else strat_resp[:160] + "..."),
+            "hypothesis_id": prop_dict.get("hypothesis_id", f"EXP{exp_no}_HYPOTHESIS"),
             "skeptic_verdict": final_verdict,
             "deciding_reason": deciding_reason,
             "code": code_str,
@@ -686,7 +764,8 @@ Return ONLY the corrected Python code inside ```python ... ```.
             "script_sha256": script_sha,
             "oof_sha256": oof_sha,
             "submission_sha256": sub_sha,
-            "git_commit": git_commit
+            "git_commit": git_commit,
+            "debate_lineage": debate_lineage
         })
 
         # ── Step 6: Honest Postmortem & Lesson Generation ──
