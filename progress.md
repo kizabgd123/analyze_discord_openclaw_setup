@@ -72,16 +72,50 @@
   - `WORK_LOG.md` (updated)
 
 ### Phase 4: Acceptance Test on Kanban Board
-- **Status:** pending
+- **Status:** complete
+- **Started:** 2026-11-06 15:50 CET — **Completed:** 2026-11-06 16:03 CET
 - Actions taken:
+  - Scaffolded test workspace: `research_workspaces/target_encoding_benchmark/` via `scaffold_research_workspace.py`
+  - Objective: "Leak-Free Out-of-Fold Target Encoding with Regularization" (Kaggle S6E5 methodology)
+  - Created 5-task Kanban graph with explicit dependency chain (--parent flags); dependency gating verified in live log output
+  - **Task A** (`t_c0ab5a3f`, kiza): Independent Discovery — OOF Target Encoding formulation → `research/discoveries/kiza_discoveries.md`
+  - **Task B** (`t_769fd89a`, kreten): Independent Discovery — Regularization methods → `research/discoveries/kreten_discoveries.md`
+  - **Task C** (`t_763c3ee7`, kreten): Research Relay — extended peer discoveries → `research/discoveries/kreten_relay_extension.md`; `research/hypotheses.md` updated with HYP_001 (non-adversarial verified in log)
+  - **Task D** (`t_373ff22b`, kiza): Experiment Execution — 5-Fold CV benchmark script written and executed (77.8s execution time); `experiments/artifacts/EXP_001/oof_predictions.pkl` created (320,337 bytes)
+  - **Task E** (`t_9a21f71f`, kreten): Evidence Verification — independent audit; reproducibility confirmed; no target leakage in V2–V4; Final Verdict: **PASS**
+  - Independent reproducibility re-run (task-623): exact AUC matches confirmed
 - Files created/modified:
+  - `research_workspaces/target_encoding_benchmark/` (all workspace files)
+  - `research_workspaces/target_encoding_benchmark/scripts/exp_001_benchmark.py`
+  - `research_workspaces/target_encoding_benchmark/experiments/artifacts/EXP_001/oof_predictions.pkl`
+  - `research_workspaces/target_encoding_benchmark/verification/evidence.md`
 
 ### Phase 5: Final Audit & Deliverables Report
-- **Status:** pending
+- **Status:** in_progress
+- **Started:** 2026-11-06 16:05 CET
 - Actions taken:
+  - JudgeGuard pre-check: PASSED
+  - Verified task-623 (independent re-run): PASSED, results match
+  - Updating planning files and creating final deliverables report
 - Files created/modified:
 
 ## Test Results
 | Test | Expected | Actual | Status |
 |------|----------|--------|--------|
 | JudgeGuard Phase 1 Pre-Check | EXIT 0 (PASSED) | EXIT 0 (PASSED) | PASS |
+| JudgeGuard Phase 2 Pre-Check | EXIT 0 (PASSED) | EXIT 0 (PASSED) | PASS |
+| JudgeGuard Phase 3 Pre-Check | EXIT 0 (PASSED) | EXIT 0 (PASSED) | PASS |
+| JudgeGuard Phase 4 Post-Check | EXIT 0 (PASSED) | EXIT 0 (PASSED) | PASS |
+| JudgeGuard Phase 5 Pre-Check | EXIT 0 (PASSED) | EXIT 0 (PASSED) | PASS |
+| Kanban task-A (t_c0ab5a3f) | done | done | PASS |
+| Kanban task-B (t_769fd89a) | done | done | PASS |
+| Kanban task-C (t_763c3ee7) | done | done | PASS |
+| Kanban task-D (t_373ff22b) | done | done | PASS |
+| Kanban task-E (t_9a21f71f) | done | done | PASS |
+| EXP_001 V1_Naive AUC | ~0.75 (leakage expected) | 0.7545 | PASS |
+| EXP_001 V2_OOF AUC | < V1 (no leakage) | 0.6871 | PASS |
+| EXP_001 V3_M_OOF AUC | best leak-free | 0.6981 | PASS |
+| EXP_001 V4_MB_OOF AUC | competitive | 0.6938 | PASS |
+| Artifact SHA256 | 3acaa9edd8b8... | 3acaa9edd8b8... | PASS |
+| Independent re-run (task-623) | Exact AUC match | Exact AUC match | PASS |
+| Evidence Verifier Final Verdict | PASS | PASS | PASS |

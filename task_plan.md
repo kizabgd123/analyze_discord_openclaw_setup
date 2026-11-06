@@ -4,7 +4,7 @@
 Implement a reusable, autonomous research and execution workflow in the existing Hermes environment using native Hermes Kanban and Discord integration, following the "Independent Discovery → Research Relay → Execution → Verification → Continuous Improvement" methodology.
 
 ## Current Phase
-Phase 3: Profile Roles & Reusable Workspace Scaffold
+Phase 4: Acceptance Test on Kanban Board
 
 ## Phases
 
@@ -40,21 +40,22 @@ Phase 3: Profile Roles & Reusable Workspace Scaffold
 - **Status:** complete
 
 ### Phase 4: Acceptance Test on Kanban Board
-- [ ] Define small, harmless test objective based on Kaggle research methodology
-- [ ] Scaffolding test workspace
-- [ ] Create Kanban task graph with explicit dependencies and contracts
-- [ ] Run Independent Discovery (Researcher 1 & Researcher 2 work independently)
-- [ ] Run Research Relay (exchange completed reports, extend findings without debate)
-- [ ] Run Experiment Engineer execution (run benchmark/experiment, log metrics to leaderboard)
-- [ ] Run Evidence Verifier (verify code execution, hashes, fold separation, artifact validity)
-- [ ] Orchestrator review & final consolidation
-- **Status:** pending
+- [x] Define small, harmless test objective based on Kaggle research methodology
+- [x] Scaffolding test workspace
+- [x] Create Kanban task graph with explicit dependencies and contracts
+- [x] Run Independent Discovery (Researcher 1 & Researcher 2 work independently)
+- [x] Run Research Relay (exchange completed reports, extend findings without debate)
+- [x] Run Experiment Engineer execution (run benchmark/experiment, log metrics to leaderboard)
+- [x] Run Evidence Verifier (verify code execution, hashes, fold separation, artifact validity)
+- [x] Orchestrator review & final consolidation
+- **Status:** complete ✅ — All 5 Kanban tasks done, Verifier Verdict: PASS
 
 ### Phase 5: Final Audit & Deliverables Report
-- [ ] Verify actual artifacts, execution logs, and Kanban history
-- [ ] Run pre-commit checks and JudgeGuard verification
+- [x] Verify actual artifacts, execution logs, and Kanban history
+- [x] Run pre-commit checks and JudgeGuard verification
 - [ ] Produce comprehensive final report covering changes, backup paths, tests, results, and proof
-- **Status:** pending
+- [ ] Git commit all Phase 4 & 5 changes
+- **Status:** in_progress
 
 ## Key Questions
 1. How to coordinate Research Relay without bot-to-bot chat?
