@@ -17,9 +17,27 @@
   - `WORK_LOG.md` (updated)
 
 ### Phase 2: Dedicated Skills Design & Creation
-- **Status:** pending
+- **Status:** complete
+- **Started:** 2026-11-06 15:42 CET
 - Actions taken:
+  - Designed and authored 5 dedicated, focused `SKILL.md` documents following the Kaggle research relay methodology:
+    1. `research-orchestrator`: objective inscription, task graph decomposition, prerequisite gating, Kanban coordination.
+    2. `independent-researcher`: autonomous discovery without peer contamination, mandatory discoveries.md structure, fact/hypothesis tagging.
+    3. `research-relay`: non-adversarial knowledge relay, peer report extension without debate, hypothesis synthesis.
+    4. `experiment-engineer`: leak-free experimental execution, single controlled change, persistent experiment_log.md and local_leaderboard.md.
+    5. `evidence-verifier`: independent audit of artifacts, SHA256 checksums, exit codes, reproducibility, and source authenticity.
+  - Installed all 5 skills into `~/.hermes/skills/research-relay/` and deployed to profile skill folders (`kiza`, `kreten`).
+  - Stored tracked skills under repository directory `skills/research-relay/`.
+  - Verified with `hermes skills list --source local`: all 5 skills discovered and enabled.
 - Files created/modified:
+  - `skills/research-relay/research-orchestrator/SKILL.md` (created)
+  - `skills/research-relay/independent-researcher/SKILL.md` (created)
+  - `skills/research-relay/research-relay/SKILL.md` (created)
+  - `skills/research-relay/experiment-engineer/SKILL.md` (created)
+  - `skills/research-relay/evidence-verifier/SKILL.md` (created)
+  - `task_plan.md` (updated)
+  - `progress.md` (updated)
+  - `WORK_LOG.md` (updated)
 
 ### Phase 3: Profile Roles & Reusable Workspace Scaffold
 - **Status:** pending

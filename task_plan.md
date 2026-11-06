@@ -4,7 +4,7 @@
 Implement a reusable, autonomous research and execution workflow in the existing Hermes environment using native Hermes Kanban and Discord integration, following the "Independent Discovery → Research Relay → Execution → Verification → Continuous Improvement" methodology.
 
 ## Current Phase
-Phase 1: Requirements, Inspection & Planning
+Phase 2: Dedicated Skills Design & Creation
 
 ## Phases
 
@@ -12,18 +12,18 @@ Phase 1: Requirements, Inspection & Planning
 - [x] Review `/home/kizamladjanijebac/Downloads/kaggle_agentic_workflow_research.md`
 - [x] Inspect existing Hermes installation, profiles, skills, tools, Kanban DB, and gateway
 - [x] Create persistent planning files (`task_plan.md`, `findings.md`, `progress.md`)
-- [ ] Document inspection findings and baseline state in `findings.md`
-- **Status:** in_progress
+- [x] Document inspection findings and baseline state in `findings.md`
+- **Status:** complete
 
 ### Phase 2: Dedicated Skills Design & Creation
-- [ ] Create `SKILL.md` for `research-orchestrator`
-- [ ] Create `SKILL.md` for `independent-researcher`
-- [ ] Create `SKILL.md` for `research-relay`
-- [ ] Create `SKILL.md` for `experiment-engineer`
-- [ ] Create `SKILL.md` for `evidence-verifier`
-- [ ] Install skills to `~/.hermes/skills/research-relay/` and deploy to profile skill directories
-- [ ] Validate skill discovery and CLI compatibility
-- **Status:** pending
+- [x] Create `SKILL.md` for `research-orchestrator`
+- [x] Create `SKILL.md` for `independent-researcher`
+- [x] Create `SKILL.md` for `research-relay`
+- [x] Create `SKILL.md` for `experiment-engineer`
+- [x] Create `SKILL.md` for `evidence-verifier`
+- [x] Install skills to `~/.hermes/skills/research-relay/` and deploy to profile skill directories
+- [x] Validate skill discovery and CLI compatibility
+- **Status:** complete
 
 ### Phase 3: Profile Roles & Reusable Workspace Scaffold
 - [ ] Configure/verify Hermes profiles (`default` orchestrator, `kiza` researcher/experimenter, `kreten` researcher/verifier)
