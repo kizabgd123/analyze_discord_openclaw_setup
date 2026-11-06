@@ -91,13 +91,21 @@
   - `research_workspaces/target_encoding_benchmark/verification/evidence.md`
 
 ### Phase 5: Final Audit & Deliverables Report
-- **Status:** in_progress
-- **Started:** 2026-11-06 16:05 CET
+- **Status:** complete
+- **Started:** 2026-11-06 16:05 CET — **Completed:** 2026-11-06 16:11 CET
 - Actions taken:
-  - JudgeGuard pre-check: PASSED
-  - Verified task-623 (independent re-run): PASSED, results match
-  - Updating planning files and creating final deliverables report
+  - Executed JudgeGuard pre-check for Phase 5 (PASSED).
+  - Verified independent reproduction run (task-623) with identical AUC metrics.
+  - Confirmed all 5 Kanban tasks are marked `done` in `~/.hermes/kanban.db`.
+  - Confirmed `verification/evidence.md` with final verdict `PASS`.
+  - Author and published comprehensive final deliverables report to artifact path:
+    `RESEARCH_RELAY_DELIVERABLES.md` (Executive Summary, 5 Skills Catalog, Profiles, Scaffold, Acceptance Proof, Benchmarks, Audit Trail, Backups, and Identified Constraints).
+  - Executed JudgeGuard post-check for Phase 5 (PASSED).
 - Files created/modified:
+  - `RESEARCH_RELAY_DELIVERABLES.md` (artifact created)
+  - `task_plan.md` (updated)
+  - `progress.md` (updated)
+  - `WORK_LOG.md` (updated)
 
 ## Test Results
 | Test | Expected | Actual | Status |
@@ -107,7 +115,19 @@
 | JudgeGuard Phase 3 Pre-Check | EXIT 0 (PASSED) | EXIT 0 (PASSED) | PASS |
 | JudgeGuard Phase 4 Post-Check | EXIT 0 (PASSED) | EXIT 0 (PASSED) | PASS |
 | JudgeGuard Phase 5 Pre-Check | EXIT 0 (PASSED) | EXIT 0 (PASSED) | PASS |
+| JudgeGuard Phase 5 Post-Check | EXIT 0 (PASSED) | EXIT 0 (PASSED) | PASS |
 | Kanban task-A (t_c0ab5a3f) | done | done | PASS |
+| Kanban task-B (t_769fd89a) | done | done | PASS |
+| Kanban task-C (t_763c3ee7) | done | done | PASS |
+| Kanban task-D (t_373ff22b) | done | done | PASS |
+| Kanban task-E (t_9a21f71f) | done | done | PASS |
+| EXP_001 V1_Naive AUC | ~0.75 (leakage expected) | 0.7545 | PASS |
+| EXP_001 V2_OOF AUC | < V1 (no leakage) | 0.6871 | PASS |
+| EXP_001 V3_M_OOF AUC | best leak-free | 0.6981 | PASS |
+| EXP_001 V4_MB_OOF AUC | competitive | 0.6938 | PASS |
+| Artifact SHA256 | 3acaa9edd8b8... | 3acaa9edd8b8... | PASS |
+| Independent re-run (task-623) | Exact AUC match | Exact AUC match | PASS |
+| Evidence Verifier Final Verdict | PASS | PASS | PASS |
 | Kanban task-B (t_769fd89a) | done | done | PASS |
 | Kanban task-C (t_763c3ee7) | done | done | PASS |
 | Kanban task-D (t_373ff22b) | done | done | PASS |
