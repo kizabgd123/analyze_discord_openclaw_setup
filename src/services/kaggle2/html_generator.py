@@ -191,10 +191,16 @@ def render_html_dashboard(state: Dict[str, Any], output_path: Path) -> Path:
         else:
             verdict_badge = f'<span class="badge badge-info">{verdict}</span>'
 
+        code = exp.get("code")
+        if code:
+            hyp_display = f"{hyp}<br><details style='margin-top:6px;'><summary style='cursor:pointer; color:#58a6ff; font-size:11px;'>View Generated Code</summary><pre style='max-height:180px; overflow:auto; font-size:11px; background:#0d1117; padding:8px; border-radius:4px; text-align:left;'><code>{html.escape(code)}</code></pre></details>"
+        else:
+            hyp_display = hyp
+
         exp_rows += f"""
         <tr>
             <td><strong>#{exp_no}</strong></td>
-            <td>{hyp}</td>
+            <td>{hyp_display}</td>
             <td>{verdict_badge}</td>
             <td><small>{deciding_reason}</small></td>
             <td><code>{cv_str}</code></td>

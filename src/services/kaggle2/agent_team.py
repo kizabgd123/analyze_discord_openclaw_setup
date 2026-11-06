@@ -288,7 +288,11 @@ class AgentTeamOrchestrator:
             f"DO NOT propose any idea already tested or blocked:\n"
             f"Past Tested: {json.dumps(past_hyps)}\n"
             f"Past Blocked: {json.dumps(blocked_hyps)}\n\n"
-            f"Research Insights:\n{tech_ans[:1000]}\n\n"
+            f"Research Insights:\n{tech_ans[:3500]}\n\n"
+            f"IMPORTANT SYNTHETIC DATASET GUIDANCE: In Playground S6E11, public benchmarks demonstrate that "
+            f"digit-trie features (e.g. cents extraction, integer parts, digit lengths) and in-fold target encodings "
+            f"yield strong ROC-AUC improvements (up to 0.952+), whereas arbitrary pairwise crosses or ungrounded manual ratios "
+            f"often collapse or degrade tree splits. Focus on grounded, high-signal representations.\n\n"
             f"Structure your proposal as:\n"
             f"HYPOTHESIS: <clear testable statement>\n"
             f"FEATURE_ENGINEERING: <specific transformations>\n"
@@ -351,6 +355,7 @@ class AgentTeamOrchestrator:
         initial_verdict = _parse_verdict(skep_resp)
         final_verdict = initial_verdict
         deciding_reason = _parse_reason(skep_resp)
+        rebut_resp = ""
 
         # ── Turn Sequence: Rebuttal & Final Decision ──
         if initial_verdict == "BLOCK":
@@ -428,12 +433,24 @@ class AgentTeamOrchestrator:
             }
 
         # ── Step 4: Engineer code generation (Scaffold Contract) ──
-        eng_prompt = f"""You are the ML Engineer. Write `model_part.py` for Experiment #{exp_no}.
-Hypothesis:
-{strat_resp}
+        if initial_verdict == "BLOCK" and rebut_resp:
+            active_spec = (
+                f"INITIAL PROPOSAL (NOTE: WAS CRITIQUED/BLOCKED BY SKEPTIC):\n{strat_resp}\n\n"
+                f"REVISED SPECIFICATION & COMMITMENTS (MANDATORY TO FOLLOW):\n{rebut_resp}\n\n"
+                f"SKEPTIC FINAL CONDITIONS & DECIDING REASON:\n{deciding_reason}"
+            )
+        else:
+            active_spec = (
+                f"HYPOTHESIS & FEATURE SPECIFICATION:\n{strat_resp}\n\n"
+                f"DECIDING REASON & CONDITIONS:\n{deciding_reason}"
+            )
 
-Deciding Reason & Conditions:
-{deciding_reason}
+        eng_prompt = f"""You are the ML Engineer. Write `model_part.py` for Experiment #{exp_no}.
+Specification & Approved Debate Protocol:
+{active_spec}
+
+CRITICAL REQUIREMENT:
+If the debate revised the proposal, eliminated features, or set conditions (e.g., forbidding specific collapsed interactions, non-existent columns, or leakage), you MUST strictly follow the REVISED specification! DO NOT write forbidden or removed code.
 
 ARCHITECTURE CONTRACT (MANDATORY):
 A fixed scaffold handles data loading from train.csv (699,960 rows), frozen 5-fold StratifiedKFold alignment,
@@ -481,6 +498,11 @@ Return ONLY the runnable Python code for `model_part.py` inside ```python ... ``
 
         model_module_path = self.run_dir / "model_part.py"
         with open(model_module_path, "w", encoding="utf-8") as f:
+            f.write(code_str)
+
+        # Preserve per-experiment code module
+        exp_module_path = self.run_dir / f"model_part_exp{exp_no}.py"
+        with open(exp_module_path, "w", encoding="utf-8") as f:
             f.write(code_str)
 
         # Copy fixed scaffold into run_dir
@@ -562,9 +584,10 @@ Return ONLY the corrected Python code inside ```python ... ```.
 
         self.state["experiments"].append({
             "exp_no": exp_no,
-            "hypothesis": strat_resp[:160] + "...",
+            "hypothesis": (rebut_resp[:160] + "..." if initial_verdict == "BLOCK" and rebut_resp else strat_resp[:160] + "..."),
             "skeptic_verdict": final_verdict,
             "deciding_reason": deciding_reason,
+            "code": code_str,
             "cv_score": cv_score,
             "status": exec_status,
             "exit_code": exit_code,

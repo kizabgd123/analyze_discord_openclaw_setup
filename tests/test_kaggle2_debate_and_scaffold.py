@@ -257,3 +257,85 @@ async def test_f3_agent_written_question_logged_with_author():
         html_content = orch.html_file.read_text(encoding="utf-8")
         assert "[Strategist | strategist_technique_search]" in html_content
         assert "[Skeptic | skeptic_fact_check]" in html_content
+
+
+@pytest.mark.asyncio
+async def test_f4_debate_revision_passed_to_engineer():
+    """
+    F(4): When a proposal is BLOCKED and revised by Strategist, the Engineer receives
+    the revised specification, the model_part_exp1.py is preserved, and code is archived in state.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        run_id = "test_revision_run"
+        tmp_path = Path(tmpdir)
+        orch = AgentTeamOrchestrator(run_id=run_id, data_dir=tmp_path)
+        orch.run_dir = tmp_path
+        orch.state_file = tmp_path / "state.json"
+        orch.html_file = tmp_path / "view.html"
+        orch.folds_file = tmp_path / "folds.json"
+        orch.lesson_service.notebook_client = None
+        orch.is_running = True
+
+        received_eng_prompt = ""
+
+        def mock_query_llm(prompt, system=None, **kwargs):
+            nonlocal received_eng_prompt
+            p_upper = prompt.upper()
+            s_upper = (system or "").upper()
+
+            if "YOU ARE THE ML ENGINEER" in p_upper or "YOU ARE THE ML ENGINEER" in s_upper:
+                received_eng_prompt = prompt
+                return "```python\nimport numpy as np\ndef train_predict(X_tr, y_tr, X_val, y_val): return np.zeros(len(X_val))\n```"
+
+            if "FORMULATE ONE SPECIFIC RESEARCH QUESTION" in p_upper:
+                return "BRIEF: Best encoding methods?"
+
+            if "YOU ARE THE STRATEGIST. BASED ON RESEARCH" in p_upper:
+                return (
+                    "HYPOTHESIS: Raw amount_usd times hours_since_last_txn cross.\n"
+                    "FEATURE_ENGINEERING: Cross amount_usd * hours_since_last_txn.\n"
+                    "MODEL_FAMILY: LightGBM\n"
+                    "EXPECTED_IMPACT: +0.002"
+                )
+
+            if "YOU ARE THE SKEPTIC. REVIEW THE STRATEGIST'S PROPOSAL" in p_upper:
+                return "VERDICT: BLOCK\nREASON: Synthetic generator collapsed this interaction to zero excess overlap."
+
+            if "THE SKEPTIC BLOCKED YOUR PROPOSAL" in p_upper:
+                return "REVISED SPECIFICATION: Remove amount_usd * hours_since_last_txn cross entirely. Use digit-trie extraction instead."
+
+            if "RENDER YOUR FINAL VERDICT" in p_upper:
+                return "FINAL_VERDICT: PROCEED_WITH_CONDITIONS\nFINAL_REASON: Removal of collapsed cross."
+
+            if "STATE YOUR FORMAL DECISION" in p_upper:
+                return "DECISION: PROCEED\nDECIDING_REASON: Adopted digit-trie revision."
+
+            return "OK"
+
+        async def mock_query_notebook(question):
+            return {"status": "PASSED", "answer": "Interactions collapse in synthetic data.", "citations": {}}
+
+        async def mock_execute_script(script, args=None, verify_oof=True):
+            return {"status": "PASSED", "cv_score": 0.94888, "last_stdout": "Fold 0 done", "last_stderr": "", "exit_code": 0, "signal": None}
+
+        with patch("gemini_client.query_llm", side_effect=mock_query_llm), \
+             patch.object(orch.notebook_client, "query_notebook", side_effect=mock_query_notebook), \
+             patch.object(orch.runner, "execute_script", side_effect=mock_execute_script):
+
+            res = await orch.run_single_experiment(exp_no=1)
+
+            assert res["status"] == "PASSED"
+            assert res["cv_score"] == 0.94888
+
+            # Verify Engineer received the revised specification
+            assert "REVISED SPECIFICATION & COMMITMENTS" in received_eng_prompt
+            assert "Remove amount_usd * hours_since_last_txn cross entirely" in received_eng_prompt
+
+            # Verify experiment-specific code file was created
+            exp1_code_file = tmp_path / "model_part_exp1.py"
+            assert exp1_code_file.is_file()
+
+            # Verify code was saved in state.json
+            assert len(orch.state["experiments"]) == 1
+            assert "code" in orch.state["experiments"][0]
+            assert "train_predict" in orch.state["experiments"][0]["code"]
