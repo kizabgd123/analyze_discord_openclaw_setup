@@ -168,6 +168,27 @@
   - `progress.md` (updated)
   - `WORK_LOG.md` (updated)
 
+### Phase R4: Strengthened Independent Verification in Isolated Context
+- **Status:** complete
+- **Started:** 2026-11-06 16:33 CET — **Completed:** 2026-11-06 16:35 CET
+- Actions taken:
+  - Created Kanban task `t_cf9f352e` for Evidence Verifier (`kreten`) parented to `t_eb661e8b`.
+  - Dispatched worker; `kreten` spawned in isolated workspace context.
+  - Verifier inspected source code `scripts/exp_001_benchmark.py` and `scripts/exp_002_m_grid_sensitivity.py`.
+  - Re-ran both benchmark scripts independently: exit code 0, reproduced exact metrics (EXP_001: 0.7545, 0.6871, 0.6981, 0.6938; EXP_002: optimal $m=10.0$ Val AUC 0.69815, Gen Gap 0.05352).
+  - Computed and validated SHA256 checksums across all 3 artifacts:
+    - `EXP_001/oof_predictions.pkl`: `3acaa9ed...`
+    - `EXP_002/m_grid_results.pkl`: `61070c39...`
+    - `EXP_002/oof_predictions_exp002.pkl`: `ce4a5d18...`
+  - Audited feature transformation fold logic: verified 0% target leakage in StratifiedKFold validation slices.
+  - Recorded formal audit `AUD_002` in `verification/evidence.md` with final verdict: **PASS**.
+  - Worker marked task `t_cf9f352e` as `done` in 94s.
+- Files created/modified:
+  - `research_workspaces/target_encoding_benchmark/verification/evidence.md` (updated by kreten)
+  - `task_plan.md` (updated)
+  - `progress.md` (updated)
+  - `WORK_LOG.md` (updated)
+
 ## Test Results
 | Test | Expected | Actual | Status |
 |------|----------|--------|--------|
@@ -186,17 +207,19 @@
 | EXP_001 V2_OOF AUC | < V1 (no leakage) | 0.6871 | PASS |
 | EXP_001 V3_M_OOF AUC | best leak-free | 0.6981 | PASS |
 | EXP_001 V4_MB_OOF AUC | competitive | 0.6938 | PASS |
-| Artifact SHA256 | 3acaa9edd8b8... | 3acaa9edd8b8... | PASS |
+| Artifact EXP_001 SHA256 | 3acaa9edd8b8... | 3acaa9edd8b8... | PASS |
 | Independent re-run (task-623) | Exact AUC match | Exact AUC match | PASS |
-| Evidence Verifier Final Verdict | PASS | PASS | PASS |
-| Kanban task-B (t_769fd89a) | done | done | PASS |
-| Kanban task-C (t_763c3ee7) | done | done | PASS |
-| Kanban task-D (t_373ff22b) | done | done | PASS |
-| Kanban task-E (t_9a21f71f) | done | done | PASS |
-| EXP_001 V1_Naive AUC | ~0.75 (leakage expected) | 0.7545 | PASS |
-| EXP_001 V2_OOF AUC | < V1 (no leakage) | 0.6871 | PASS |
-| EXP_001 V3_M_OOF AUC | best leak-free | 0.6981 | PASS |
-| EXP_001 V4_MB_OOF AUC | competitive | 0.6938 | PASS |
-| Artifact SHA256 | 3acaa9edd8b8... | 3acaa9edd8b8... | PASS |
-| Independent re-run (task-623) | Exact AUC match | Exact AUC match | PASS |
-| Evidence Verifier Final Verdict | PASS | PASS | PASS |
+| Evidence Verifier AUD_001 Verdict | PASS | PASS | PASS |
+| JudgeGuard Phase R1 Pre & Post | EXIT 0 (PASSED) | EXIT 0 (PASSED) | PASS |
+| JudgeGuard Phase R2 Pre & Post | EXIT 0 (PASSED) | EXIT 0 (PASSED) | PASS |
+| JudgeGuard Phase R3 Pre & Post | EXIT 0 (PASSED) | EXIT 0 (PASSED) | PASS |
+| JudgeGuard Phase R4 Pre & Post | EXIT 0 (PASSED) | EXIT 0 (PASSED) | PASS |
+| Kanban task-Reciprocal-A (t_21aa1061) | done | done | PASS |
+| Kanban task-Cycle-2 (t_eb661e8b) | done | done | PASS |
+| Kanban task-Verification-2 (t_cf9f352e) | done | done | PASS |
+| EXP_002 Optimal m=10.0 AUC | > 0.6950 | 0.69815 | PASS |
+| EXP_002 Generalization Gap Reduction | Monotonic reduction | 0.07531 -> 0.05352 | PASS |
+| Artifact EXP_002 m_grid SHA256 | 61070c39217d... | 61070c39217d... | PASS |
+| Artifact EXP_002 oof_preds SHA256 | ce4a5d18bd52... | ce4a5d18bd52... | PASS |
+| Evidence Verifier AUD_002 Verdict | PASS | PASS | PASS |
+| Zero Target Leakage in Val Folds | 0.0% leakage | 0.0% leakage | PASS |
