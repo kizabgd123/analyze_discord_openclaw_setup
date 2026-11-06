@@ -4,7 +4,7 @@
 Implement a reusable, autonomous research and execution workflow in the existing Hermes environment using native Hermes Kanban and Discord integration, following the "Independent Discovery → Research Relay → Execution → Verification → Continuous Improvement" methodology.
 
 ## Current Phase
-Phase 2: Dedicated Skills Design & Creation
+Phase 3: Profile Roles & Reusable Workspace Scaffold
 
 ## Phases
 
@@ -26,9 +26,9 @@ Phase 2: Dedicated Skills Design & Creation
 - **Status:** complete
 
 ### Phase 3: Profile Roles & Reusable Workspace Scaffold
-- [ ] Configure/verify Hermes profiles (`default` orchestrator, `kiza` researcher/experimenter, `kreten` researcher/verifier)
-- [ ] Build reusable research workspace template generator (`templates/research-workspace/` and `scaffold_workspace.py`)
-- [ ] Define workspace contracts:
+- [x] Configure/verify Hermes profiles (`default` orchestrator, `kiza` researcher/experimenter, `kreten` researcher/verifier)
+- [x] Build reusable research workspace template generator (`templates/research-workspace/` and `scaffold_workspace.py`)
+- [x] Define workspace contracts:
   - `objective.md`
   - `research/discoveries/`
   - `research/sources.md`
@@ -37,7 +37,7 @@ Phase 2: Dedicated Skills Design & Creation
   - `experiments/local_leaderboard.md`
   - `verification/evidence.md`
   - `planning/next_actions.md`
-- **Status:** pending
+- **Status:** complete
 
 ### Phase 4: Acceptance Test on Kanban Board
 - [ ] Define small, harmless test objective based on Kaggle research methodology

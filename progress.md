@@ -40,9 +40,36 @@
   - `WORK_LOG.md` (updated)
 
 ### Phase 3: Profile Roles & Reusable Workspace Scaffold
-- **Status:** pending
+- **Status:** complete
+- **Started:** 2026-11-06 15:46 CET
 - Actions taken:
+  - Updated Hermes profile descriptions in `~/.hermes/profile.yaml` (`default` Orchestrator), `~/.hermes/profiles/kiza/profile.yaml` (`kiza` Independent Researcher & Experiment Engineer), and `~/.hermes/profiles/kreten/profile.yaml` (`kreten` Independent Researcher & Evidence Verifier).
+  - Built reusable workspace templates under `templates/research-workspace/`:
+    - `objective.md`
+    - `research/sources.md`
+    - `research/hypotheses.md`
+    - `research/discoveries/README.md`
+    - `experiments/experiment_log.md`
+    - `experiments/local_leaderboard.md`
+    - `verification/evidence.md`
+    - `planning/next_actions.md`
+  - Created executable python scaffolding tool `scaffold_research_workspace.py` with argument parsing and template variable interpolation.
 - Files created/modified:
+  - `templates/research-workspace/objective.md` (created)
+  - `templates/research-workspace/research/sources.md` (created)
+  - `templates/research-workspace/research/hypotheses.md` (created)
+  - `templates/research-workspace/research/discoveries/README.md` (created)
+  - `templates/research-workspace/experiments/experiment_log.md` (created)
+  - `templates/research-workspace/experiments/local_leaderboard.md` (created)
+  - `templates/research-workspace/verification/evidence.md` (created)
+  - `templates/research-workspace/planning/next_actions.md` (created)
+  - `scaffold_research_workspace.py` (created)
+  - `~/.hermes/profile.yaml` (updated)
+  - `~/.hermes/profiles/kiza/profile.yaml` (updated)
+  - `~/.hermes/profiles/kreten/profile.yaml` (updated)
+  - `task_plan.md` (updated)
+  - `progress.md` (updated)
+  - `WORK_LOG.md` (updated)
 
 ### Phase 4: Acceptance Test on Kanban Board
 - **Status:** pending
