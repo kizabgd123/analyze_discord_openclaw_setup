@@ -8,6 +8,13 @@ Dynamic Autocomplete, Interactive Select Menus, Pop-up Modals, and Action Button
 
 import os
 import sys
+from pathlib import Path
+
+# Ensure ML dependencies in runner_venv are available to orchestrator and bot
+_runner_site = Path(__file__).resolve().parent / "runner_venv" / "lib" / "python3.12" / "site-packages"
+if _runner_site.exists() and str(_runner_site) not in sys.path:
+    sys.path.insert(0, str(_runner_site))
+
 import asyncio
 import logging
 import json
@@ -1505,10 +1512,28 @@ kaggle2_group = app_commands.Group(
     description="🚀 Pokreni autonoman tim agenata za playground-series-s6e11 (Admin Only)"
 )
 async def kaggle2_start_slash(interaction: discord.Interaction):
+    if not interaction.response.is_done():
+        await interaction.response.defer()
     from src.controllers.kaggle2_controller import kaggle2_controller
     await kaggle2_controller.handle_start(interaction)
 
 bot.tree.add_command(kaggle2_group)
+
+@bot.group(name="kaggle2", invoke_without_command=True)
+async def kaggle2_prefix_group(ctx):
+    embed = discord.Embed(
+        title="🏆 Kaggle2 Multi-Agent Workflow (Admin Only)",
+        description="Dostupne komande za Kaggle2:\n"
+                    "• `!kaggle2 start` — Pokreni autonomnu sezonu za playground-series-s6e11\n"
+                    "• `/kaggle2 start` — Slash varijanta sa interaktivnim kontrolama\n",
+        color=0x4285F4
+    )
+    await ctx.send(embed=embed)
+
+@kaggle2_prefix_group.command(name="start")
+async def kaggle2_prefix_start(ctx):
+    from src.controllers.kaggle2_controller import kaggle2_controller
+    await kaggle2_controller.handle_start_prefix(ctx)
 
 # ── 10. PREFIX COMMANDS COMPATIBILITY (ZA `!` PREFIKS) ──
 

@@ -96,15 +96,16 @@ class Kaggle2Controller:
 
     async def handle_start(self, interaction: discord.Interaction):
         """Entry point for /kaggle2 start slash command."""
+        if not interaction.response.is_done():
+            await interaction.response.defer()
+
         if not check_admin_auth(interaction):
-            await interaction.response.send_message("❌ Pristup odbijen: Niste autorizovani administrator.", ephemeral=True)
+            await interaction.followup.send("❌ Pristup odbijen: Niste autorizovani administrator.", ephemeral=True)
             return
 
         run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         orchestrator = AgentTeamOrchestrator(run_id=run_id)
         self.active_runs[run_id] = orchestrator
-
-        await interaction.response.defer()
 
         # Initialize run
         init_res = await orchestrator.initialize_run()
@@ -130,6 +131,42 @@ class Kaggle2Controller:
 
         # Launch autonomous cycle in background
         asyncio.create_task(self._run_cycle(orchestrator, interaction.channel))
+
+    async def handle_start_prefix(self, ctx):
+        """Entry point for !kaggle2 start prefix command."""
+        if not check_admin_auth(ctx):
+            await ctx.send("❌ Pristup odbijen: Niste autorizovani administrator.")
+            return
+
+        run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        orchestrator = AgentTeamOrchestrator(run_id=run_id)
+        self.active_runs[run_id] = orchestrator
+
+        # Initialize run
+        await ctx.send(f"⏳ Inicijalizujem Kaggle S6E11 V2 autonomni tim agenata (Run ID: `{run_id}`)...")
+        init_res = await orchestrator.initialize_run()
+
+        embed = discord.Embed(
+            title="🚀 Kaggle Playground S6E11: Multi-Agent System Pokrenut",
+            description=f"Pokrenut je autonoman tim agenata za **playground-series-s6e11** FROM ZERO.\n"
+                        f"• **Run ID:** `{run_id}`\n"
+                        f"• **CV Strategija:** `{orchestrator.state.get('folds_info')}`\n"
+                        f"• **Izvori u svesci:** `{init_res.get('sources_count')} izvora`\n"
+                        f"• **Hard Cap predaja:** 5 po run-u (0 poslato u ovom probnom ciklusu)\n",
+            color=discord.Color.green(),
+            timestamp=datetime.now(timezone.utc)
+        )
+        embed.add_field(name="Triada agenata", value="• **Strategist:** Hipoteze i NLM istraživanje\n• **Engineer:** Implementacija koda\n• **Skeptic:** Zabrana leakage-a i verifikacija metrike", inline=False)
+        embed.set_footer(text="Prva predaja zahteva Confirm dugme. Dashboard se osvežava posle svakog kruga.")
+
+        html_file = Path(orchestrator.html_file)
+        discord_file = discord.File(str(html_file), filename=f"dashboard_{run_id}.html") if html_file.exists() else None
+
+        view = Kaggle2ActionView(orchestrator)
+        await ctx.send(embed=embed, view=view, file=discord_file)
+
+        # Launch autonomous cycle in background
+        asyncio.create_task(self._run_cycle(orchestrator, ctx.channel))
 
     async def _run_cycle(self, orchestrator: AgentTeamOrchestrator, channel: Optional[discord.abc.Messageable]):
         try:
