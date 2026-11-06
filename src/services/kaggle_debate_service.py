@@ -157,8 +157,8 @@ class KaggleDebateService:
             lambda: query_llm(
                 prompt=strategist_p,
                 system="Ti si Kaggle Grandmaster Strateg. Fokusiraj se na metriku i optimizacioni cilj.",
-                prefer_cloud_ollama=True,
-                timeout=60,
+                prefer_cloud_ollama=False,
+                timeout=90,
             ),
         )
         if on_event_callback:
@@ -176,8 +176,8 @@ class KaggleDebateService:
             lambda: query_llm(
                 prompt=engineer_p,
                 system="Ti si Kaggle ML Inženjer. Fokusiraj se na izvodljiv kod, preprocesiranje i ensemble.",
-                prefer_cloud_ollama=True,
-                timeout=60,
+                prefer_cloud_ollama=False,
+                timeout=90,
             ),
         )
         if on_event_callback:
@@ -196,8 +196,8 @@ class KaggleDebateService:
             lambda: query_llm(
                 prompt=skeptic_p,
                 system="Ti si Nemilosrdni Kaggle Skeptik. Pronađi svaku slabost i rizik diskvalifikacije.",
-                prefer_cloud_ollama=True,
-                timeout=60,
+                prefer_cloud_ollama=False,
+                timeout=90,
             ),
         )
         if on_event_callback:
@@ -219,8 +219,8 @@ class KaggleDebateService:
             lambda: query_llm(
                 prompt=eng_r2_p,
                 system="Ti si Inženjer. Brani i adaptiraj rešenje odgovarajući na konkretne primedbe Skeptika.",
-                prefer_cloud_ollama=True,
-                timeout=60,
+                prefer_cloud_ollama=False,
+                timeout=90,
             ),
         )
         if on_event_callback:
@@ -239,8 +239,8 @@ class KaggleDebateService:
             lambda: query_llm(
                 prompt=strat_r2_p,
                 system="Ti si Glavni Strateg. Donesi konačnu odluku i objasni odlučujući razlog.",
-                prefer_cloud_ollama=True,
-                timeout=60,
+                prefer_cloud_ollama=False,
+                timeout=90,
             ),
         )
         if on_event_callback:
@@ -268,8 +268,8 @@ class KaggleDebateService:
             lambda: query_llm(
                 prompt=synth_p,
                 system="Ti si Moderator. Sažmi plan objektivno, sa jasnim oznakama eksperimenta i neslaganja.",
-                prefer_cloud_ollama=True,
-                timeout=80,
+                prefer_cloud_ollama=False,
+                timeout=90,
             ),
         )
 
@@ -294,8 +294,8 @@ class KaggleDebateService:
             lambda: query_llm(
                 prompt=code_p,
                 system="Ti si Python AI Expert. Vrati samo validan Python kod spreman za izvršenje na Kaggle.",
-                prefer_cloud_ollama=True,
-                timeout=100,
+                prefer_cloud_ollama=False,
+                timeout=120,
             ),
         )
 

@@ -28,6 +28,7 @@ AGY_ACCOUNTS: List[str] = [
     "promo@mrcleanervracar.com",
     "lovajetu@gmail.com",
     "lifemysolver@gmail.com",
+    "stojanoviczoran887@gmail.com",
 ]
 
 _current_account_idx = 0
@@ -41,21 +42,17 @@ def get_next_agy_account() -> str:
     return account
 
 
-def query_agy_cli(
+def _execute_single_agy_run(
     prompt: str,
     system: Optional[str] = None,
     model: str = "gemini-3.8-flash-high",
-    account: Optional[str] = None,
-    timeout: int = 150,
+    account: str = "kiza101288@gmail.com",
+    timeout: int = 45,
 ) -> str:
-    """
-    Executes a query via antigravity-cli (`agy`) in print mode (-p).
-    Used by all agents to organize, debate, and engineer Kaggle S6E11 solutions.
-    """
+    """Runs a single prompt under a specific Antigravity account."""
     if not os.path.exists(AGY_BIN):
         raise FileNotFoundError(f"Antigravity CLI binarni fajl nije pronađen na {AGY_BIN}")
 
-    selected_account = account or DEFAULT_AGY_ACCOUNT
     full_prompt = f"Instrukcija: {system}\n\nZadatak: {prompt}" if system else prompt
 
     cmd = [
@@ -67,42 +64,85 @@ def query_agy_cli(
     ]
 
     env = os.environ.copy()
-    env["AGY_ACCOUNT"] = selected_account
+    env["AGY_ACCOUNT"] = account
 
-    logger.info(f"[Miki Nosonja / agy-cli] Pokrećem agy CLI | nalog={selected_account} | model={model}")
+    logger.info(f"[agy-cli] Pokrećem agy CLI | nalog={account} | model={model} | timeout={timeout}s")
 
-    try:
-        result = subprocess.run(
-            cmd,
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            cwd=os.getcwd(),
-            env=env,
-        )
+    result = subprocess.run(
+        cmd,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        cwd=os.getcwd(),
+        env=env,
+    )
 
-        output = result.stdout.strip()
-        if output:
-            # Clean possible TUI spinner artifacts like ⠋, ⠙, ⠹, etc.
-            clean_lines = []
-            for line in output.splitlines():
-                stripped = re.sub(r"^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s*Fetching available models\.\.\.", "", line).strip()
-                if stripped:
-                    clean_lines.append(stripped)
-            cleaned = "\n".join(clean_lines).strip()
-            if cleaned:
-                return cleaned
+    output = result.stdout.strip()
+    if output:
+        # Clean possible TUI spinner artifacts like ⠋, ⠙, ⠹, etc.
+        clean_lines = []
+        for line in output.splitlines():
+            stripped = re.sub(r"^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s*Fetching available models\.\.\.", "", line).strip()
+            if stripped:
+                clean_lines.append(stripped)
+        cleaned = "\n".join(clean_lines).strip()
+        if cleaned:
+            return cleaned
 
-        err = result.stderr.strip()
-        logger.warning(f"[agy-cli] Upozorenje/Greška (kod {result.returncode}): {err}")
-        if err and "error" not in err.lower():
-            return err
-        raise RuntimeError(f"Antigravity CLI error (kod {result.returncode}): {err}")
+    err = result.stderr.strip()
+    logger.warning(f"[agy-cli] Upozorenje/Greška za nalog {account} (kod {result.returncode}): {err}")
+    if err and "error" not in err.lower() and "silent auth failed" not in err.lower():
+        return err
+    raise RuntimeError(f"Antigravity CLI error for {account} (kod {result.returncode}): {err}")
 
-    except subprocess.TimeoutExpired:
-        logger.error(f"[agy-cli] Timeout nakon {timeout}s za nalog {selected_account}")
-        raise TimeoutError(f"Antigravity CLI je istekao nakon {timeout}s")
+
+def query_agy_cli(
+    prompt: str,
+    system: Optional[str] = None,
+    model: str = "gemini-3.8-flash-high",
+    account: Optional[str] = None,
+    timeout: int = 150,
+    auto_failover: bool = True,
+) -> str:
+    """
+    Executes a query via antigravity-cli (`agy`) in print mode (-p).
+    Supports automatic multi-account failover across verified accounts
+    if an account encounters timeout or silent auth failure.
+    """
+    primary_account = account or DEFAULT_AGY_ACCOUNT
+    candidate_accounts = [primary_account]
+    if auto_failover:
+        for acc in AGY_ACCOUNTS:
+            if acc not in candidate_accounts:
+                candidate_accounts.append(acc)
+
+    # Allocate per-account timeout (min 35s per candidate attempt, max total timeout)
+    per_account_timeout = max(35, min(60, timeout // max(1, len(candidate_accounts))))
+
+    last_error: Optional[Exception] = None
+    for acc in candidate_accounts:
+        try:
+            res = _execute_single_agy_run(
+                prompt=prompt,
+                system=system,
+                model=model,
+                account=acc,
+                timeout=per_account_timeout,
+            )
+            if res and len(res.strip()) > 0:
+                logger.info(f"[agy-cli] Uspešno izvršen upit | aktivan nalog={acc}")
+                return res
+        except (subprocess.TimeoutExpired, TimeoutError) as t_err:
+            last_error = t_err
+            logger.warning(f"[agy-cli] Timeout ({per_account_timeout}s) za nalog {acc}. Pokušavam sledeći nalog...")
+        except Exception as e:
+            last_error = e
+            logger.warning(f"[agy-cli] Greška za nalog {acc}: {e}. Pokušavam sledeći nalog...")
+
+    if last_error:
+        raise last_error
+    raise RuntimeError("Nijedan Antigravity nalog nije uspeo da vrati odgovor.")
 
 
 if __name__ == "__main__":
