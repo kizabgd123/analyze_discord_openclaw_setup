@@ -1494,6 +1494,22 @@ async def kaggle_push_prefix(ctx, competition: str):
     from src.controllers.kaggle_controller import kaggle_controller
     await kaggle_controller.handle_kaggle_push_prefix(ctx, competition)
 
+# ── 9D. KAGGLE2 MULTI-AGENT COMPETITION WORKFLOW (/kaggle2) ──
+kaggle2_group = app_commands.Group(
+    name="kaggle2",
+    description="🏆 Kaggle2 Multi-Agent Autonomous Competition System (Admin Only)"
+)
+
+@kaggle2_group.command(
+    name="start",
+    description="🚀 Pokreni autonoman tim agenata za playground-series-s6e11 (Admin Only)"
+)
+async def kaggle2_start_slash(interaction: discord.Interaction):
+    from src.controllers.kaggle2_controller import kaggle2_controller
+    await kaggle2_controller.handle_start(interaction)
+
+bot.tree.add_command(kaggle2_group)
+
 # ── 10. PREFIX COMMANDS COMPATIBILITY (ZA `!` PREFIKS) ──
 
 @bot.group(name="debate", invoke_without_command=True)

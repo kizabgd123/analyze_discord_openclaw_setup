@@ -38,21 +38,28 @@ class LocalRunner:
         timeout_seconds: int = 600,
         data_dir: Optional[Path] = None,
         venv_dir: Optional[Path] = None,
+        folds_file: Optional[Path] = None,
         firejail_path: str = "/usr/bin/firejail",
     ):
         self.run_dir = Path(run_dir)
         self.timeout_seconds = timeout_seconds
         self.data_dir = Path(data_dir) if data_dir else Path("/home/kizamladjanijebac/Desktop/discord-openclaw/artifacts/kaggle/s6e11/data")
-        self.venv_dir = Path(venv_dir) if venv_dir else Path("/home/kizamladjanijebac/Desktop/discord-openclaw/venv")
+        self.venv_dir = Path(venv_dir) if venv_dir else Path("/home/kizamladjanijebac/Desktop/discord-openclaw/runner_venv")
+        self.folds_file = Path(folds_file) if folds_file else (self.run_dir / "folds.json")
         self.firejail_path = firejail_path
         self.current_process: Optional[asyncio.subprocess.Process] = None
         self.current_pid: Optional[int] = None
         self._killed_manually: bool = False
 
-    async def execute_script(self, script_path: Path, args: Optional[List[str]] = None) -> Dict[str, Any]:
+    async def execute_script(
+        self,
+        script_path: Path,
+        args: Optional[List[str]] = None,
+        verify_oof: bool = True
+    ) -> Dict[str, Any]:
         """
         Executes a Python script in a detached process group inside Firejail sandbox.
-        Captures output, measures elapsed time, and deterministically parses metrics.
+        Captures output, measures elapsed time, and evaluates verified out-of-fold metrics.
         Fails closed if Firejail is unavailable.
         """
         self.run_dir.mkdir(parents=True, exist_ok=True)
@@ -201,15 +208,40 @@ class LocalRunner:
                     "elapsed_seconds": elapsed
                 }
 
-            # Parse CV score from output
-            cv_score = self._extract_cv_score(stdout_text)
-            status = "PASSED" if cv_score is not None else "UNVERIFIED"
+            if not verify_oof:
+                return {
+                    "status": "PASSED",
+                    "exit_code": exit_code,
+                    "cv_score": None,
+                    "fold_scores": {},
+                    "error": None,
+                    "stdout": stdout_text,
+                    "stderr": stderr_text,
+                    "elapsed_seconds": elapsed
+                }
+
+            # Score Integrity: Evaluator runs outside sandbox, validates OOF predictions artifact,
+            # verifies fold isolation (leakage check), and computes ground-truth ROC AUC deterministically.
+            # STDOUT IS COMPLETELY IGNORED FOR SCORING.
+            eval_res = await self._evaluate_oof_harness()
+            if eval_res.get("status") != "PASSED":
+                return {
+                    "status": "FAILED",
+                    "exit_code": 1,
+                    "cv_score": None,
+                    "fold_scores": {},
+                    "error": eval_res.get("error", "ScoreIntegrityError: OOF predictions verification failed"),
+                    "stdout": stdout_text,
+                    "stderr": stderr_text,
+                    "elapsed_seconds": elapsed
+                }
 
             return {
-                "status": status,
+                "status": "PASSED",
                 "exit_code": exit_code,
-                "cv_score": cv_score,
-                "error": None if status == "PASSED" else "No valid CV_ROC_AUC metric found in script output",
+                "cv_score": eval_res.get("cv_score"),
+                "fold_scores": eval_res.get("fold_scores", {}),
+                "error": None,
                 "stdout": stdout_text,
                 "stderr": stderr_text,
                 "elapsed_seconds": elapsed
@@ -222,6 +254,7 @@ class LocalRunner:
                 "status": "FAILED",
                 "exit_code": 1,
                 "cv_score": None,
+                "fold_scores": {},
                 "error": f"Runner failure: {type(exc).__name__}: {exc}",
                 "stdout": "",
                 "stderr": str(exc),
@@ -230,6 +263,52 @@ class LocalRunner:
         finally:
             self.current_process = None
             self.current_pid = None
+
+    async def _evaluate_oof_harness(self) -> Dict[str, Any]:
+        """
+        Executes the fixed out-of-sandbox evaluation harness using runner_venv python.
+        Validates OOF predictions, checks fold isolation, and computes ROC AUC directly.
+        Completely ignores agent stdout.
+        """
+        python_bin = str(self.venv_dir / "bin" / "python3")
+        if not Path(python_bin).is_file():
+            python_bin = sys.executable
+
+        eval_script = Path(__file__).parent / "evaluator.py"
+        cmd = [
+            python_bin,
+            str(eval_script),
+            "evaluate",
+            "--run-dir", str(self.run_dir),
+            "--data-dir", str(self.data_dir),
+        ]
+        if self.folds_file and Path(self.folds_file).is_file():
+            cmd.extend(["--folds-file", str(self.folds_file)])
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                err_text = stderr.decode(errors="replace").strip() or stdout.decode(errors="replace").strip()
+                return {
+                    "status": "FAILED",
+                    "cv_score": None,
+                    "fold_scores": {},
+                    "error": f"Evaluator failure (exit {proc.returncode}): {err_text}"
+                }
+            res = json.loads(stdout.decode(errors="replace").strip())
+            return res
+        except Exception as exc:
+            return {
+                "status": "FAILED",
+                "cv_score": None,
+                "fold_scores": {},
+                "error": f"Evaluator execution exception: {exc}"
+            }
 
     async def kill(self) -> bool:
         """Kills the active process group and verifies no leftover PID."""
@@ -259,31 +338,7 @@ class LocalRunner:
         except (ProcessLookupError, OSError):
             return False
 
-    @staticmethod
-    def _extract_cv_score(stdout_text: str) -> Optional[float]:
-        """Looks for deterministic CV metric tags like CV_ROC_AUC: 0.9512 or JSON metric block."""
-        import re
-        # Pattern 1: JSON output
-        for line in stdout_text.splitlines():
-            line = line.strip()
-            if line.startswith("{") and line.endswith("}"):
-                try:
-                    payload = json.loads(line)
-                    if "cv_roc_auc" in payload:
-                        return float(payload["cv_roc_auc"])
-                    if "cv_score" in payload:
-                        return float(payload["cv_score"])
-                except Exception:
-                    pass
 
-        # Pattern 2: Regex for CV_ROC_AUC / ROC_AUC
-        match = re.search(r"(?:CV_ROC_AUC|ROC_AUC|CV_AUC|ROC-AUC)\s*[:=]\s*([0-9]+\.[0-9]+)", stdout_text, re.IGNORECASE)
-        if match:
-            try:
-                return float(match.group(1))
-            except ValueError:
-                pass
-        return None
 
 
 class KernelRunner:
