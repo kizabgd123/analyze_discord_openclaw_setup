@@ -15,9 +15,18 @@
 | $m = 0.1$ | 0.68772 | 0.01549 | 0.76238 | 0.07466 | Negligible shrinkage |
 | $m = 1.0$ | 0.69097 | 0.01533 | 0.76166 | 0.07068 | Mild variance reduction |
 | $m = 5.0$ | 0.69712 | 0.01465 | 0.75658 | 0.05946 | Rapid generalization improvement |
-| **$m = 10.0$** | **0.69815** | **0.01394** | **0.75167** | **0.05352** | **Optimal regularization peak (highest AUC, lowest fold variance)** |
+| **$m = 10.0$** | **0.69815** | **0.01394** | **0.75167** | **0.05352** | **Optimal performance peak (highest mean Val AUC; intermediate fold std: 0.01394)** |
 | $m = 20.0$ | 0.69752 | 0.01400 | 0.74597 | 0.04845 | Mild over-smoothing begins |
 | $m = 50.0$ | 0.69504 | 0.01400 | 0.73859 | 0.04355 | Noticeable shrinkage toward global mean |
 | $m = 100.0$ | 0.69323 | 0.01353 | 0.73434 | 0.04111 | Over-smoothing suppresses genuine category signal |
 | $m = 500.0$ | 0.69036 | 0.01335 | 0.72826 | 0.03790 | Severe attenuation |
-| $m = 1000.0$ | 0.68960 | 0.01303 | 0.72723 | 0.03763 | Asymptotic limit: converges toward global mean feature |
+| **$m = 1000.0$** | **0.68960** | **0.01303** | **0.72723** | **0.03763** | **Asymptotic stability limit: lowest fold standard deviation (0.01303) and smallest generalization gap (0.03763), but reduced discriminative power** |
+
+### Methodological & Empirical Notes:
+1. **Bias-Variance & Stability Trade-off:**
+   - $m = 10.0$ achieves the highest discriminative performance across the 5 validation folds (mean Val AUC = 0.69815).
+   - $m = 1000.0$ achieves the highest stability across folds, demonstrating the lowest fold standard deviation (0.01303 vs 0.01394 for $m=10.0$) and the narrowest generalization gap (0.03763 vs 0.05352). Extreme shrinkage forces all category representations toward the uniform global prior $\mu_{global}$, which dampens fold-to-fold variance but erodes discriminative signal (AUC decreases by -0.00855 from the peak).
+   - Hypotheses claiming that optimal AUC and minimal fold variance coincide at $m=10.0$ are empirically refuted by these results.
+2. **Evaluation Scope: Cross-Validation vs External Test Performance:**
+   - All validation metrics in this log represent Out-of-Fold (OOF) cross-validation evaluation under 5-Fold Stratified K-Fold.
+   - No separate, held-out external test set was utilized in EXP_001 or EXP_002. These metrics measure out-of-fold generalization on the training distribution and must not be conflated with generalization to unseen future test distributions.
