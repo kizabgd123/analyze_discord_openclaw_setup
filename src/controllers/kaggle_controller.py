@@ -510,6 +510,10 @@ class KaggleController:
             logger.error(f"Kaggle push failed: {exc}", exc_info=True)
             await interaction.followup.send(f"❌ Greška pri pushovanju na Kaggle: {exc}", ephemeral=False)
 
+    async def handle_kaggle_deploy_prefix(self, ctx, competition: str):
+        """Prefix command (!kaggle push) variant for direct push to Kaggle remote compute."""
+        return await self.handle_kaggle_push_prefix(ctx, competition)
+
     async def handle_kaggle_push_prefix(self, ctx, competition: str):
         """Prefix command (!kaggle push) variant for direct push to Kaggle remote compute."""
         try:

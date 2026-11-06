@@ -1465,7 +1465,7 @@ async def kaggle_start_slash(interaction: discord.Interaction, competition: str)
 @app_commands.describe(
     competition="Naziv/slug takmičenja na Kaggle (npr. name-that-llm)"
 )
-async def kaggle_push_slash(interaction: discord.Interaction, competition: str):
+async def kaggle_deploy_slash(interaction: discord.Interaction, competition: str):
     from src.controllers.kaggle_controller import kaggle_controller
     await kaggle_controller.handle_kaggle_push(interaction, competition)
 
@@ -1490,9 +1490,9 @@ async def kaggle_start_prefix(ctx, competition: str):
     await kaggle_controller.handle_kaggle_start_prefix(ctx, competition)
 
 @kaggle_prefix_group.command(name="push")
-async def kaggle_push_prefix(ctx, competition: str):
+async def kaggle_deploy_prefix(ctx, competition: str):
     from src.controllers.kaggle_controller import kaggle_controller
-    await kaggle_controller.handle_kaggle_push_prefix(ctx, competition)
+    await kaggle_controller.handle_kaggle_deploy_prefix(ctx, competition)
 
 # ── 9D. KAGGLE2 MULTI-AGENT COMPETITION WORKFLOW (/kaggle2) ──
 kaggle2_group = app_commands.Group(
