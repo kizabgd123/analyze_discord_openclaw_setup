@@ -77,12 +77,12 @@ Phase 4: Acceptance Test on Kanban Board
 - **Status:** complete ✅
 
 ### Phase R3: Autonomous Experimentation — Consecutive Cycles (EXP_001 & EXP_002)
-- [ ] Cycle 1 (EXP_001): OOF Target Encoding baseline vs Regularization (completed baseline, AUC=0.6981)
-- [ ] Cycle 2 (EXP_002): Autonomous next experiment formulated from HYP_002 (e.g. M-estimate parameter grid sensitivity: m in {1, 5, 10, 20, 50})
-- [ ] Execute EXP_002 via Experiment Engineer on Kanban (`t_exp_002`)
-- [ ] Record results in `experiments/experiment_log.md` and update `experiments/local_leaderboard.md`
-- [ ] Formulate evidence-based next action in `planning/next_actions.md`
-- **Status:** pending
+- [x] Cycle 1 (EXP_001): OOF Target Encoding baseline vs Regularization (completed baseline, AUC=0.6981)
+- [x] Cycle 2 (EXP_002): Autonomous next experiment formulated from HYP_002 (M-estimate parameter grid sensitivity: m in [0, 1000])
+- [x] Execute EXP_002 via Experiment Engineer on Kanban (`t_eb661e8b`) — autonomous execution verified (completed in 71s)
+- [x] Record results in `experiments/experiment_log.md` and update `experiments/local_leaderboard.md`
+- [x] Formulate evidence-based next action in `planning/next_actions.md` (EXP_003 formulated)
+- **Status:** complete ✅
 
 ### Phase R4: Strengthened Independent Verification in Isolated Context
 - [ ] Isolated verification task assigned on Kanban to Evidence Verifier (`kreten`)
