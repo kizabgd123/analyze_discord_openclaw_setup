@@ -140,6 +140,7 @@ async def test_f2_forced_block_skips_engineer_and_logs_blocked_in_html():
         orch.state_file = tmp_path / "state.json"
         orch.html_file = tmp_path / "view.html"
         orch.folds_file = tmp_path / "folds.json"
+        orch.lesson_service.notebook_client = None
         orch.is_running = True
 
         engineer_called = False
