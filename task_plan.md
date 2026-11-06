@@ -69,12 +69,12 @@ Phase 4: Acceptance Test on Kanban Board
 - **Status:** complete ✅
 
 ### Phase R2: Reciprocal Research Relay & Hypothesis Engine Execution
-- [ ] Verify Independent Discoveries exist: `kiza_discoveries.md` and `kreten_discoveries.md`
-- [ ] Create Reciprocal Relay Kanban task for `kiza`: read `kreten_discoveries.md`, generate `research/discoveries/relay_kiza.md`
-- [ ] Create Reciprocal Relay Kanban task for `kreten`: read `kiza_discoveries.md`, generate `research/discoveries/relay_kreten.md`
-- [ ] Execute both reciprocal relay tasks via Hermes Kanban
-- [ ] Orchestrator Hypothesis Engine: synthesize `relay_kiza.md` + `relay_kreten.md` into ranked `research/hypotheses.md` (HYP_001, HYP_002, HYP_003)
-- **Status:** pending
+- [x] Verify Independent Discoveries exist: `kiza_discoveries.md` and `kreten_discoveries.md`
+- [x] Create Reciprocal Relay Kanban task for `kiza`: read `kreten_discoveries.md`, generate `research/discoveries/relay_kiza.md` (`t_21aa1061`)
+- [x] Create Reciprocal Relay Kanban task for `kreten`: read `kiza_discoveries.md`, generate `research/discoveries/relay_kreten.md` (`t_763c3ee7`)
+- [x] Execute both reciprocal relay tasks via Hermes Kanban (both marked `done`, execution verified)
+- [x] Orchestrator Hypothesis Engine: synthesize `relay_kiza.md` + `relay_kreten.md` into ranked `research/hypotheses.md` (HYP_001, HYP_002, HYP_003)
+- **Status:** complete ✅
 
 ### Phase R3: Autonomous Experimentation — Consecutive Cycles (EXP_001 & EXP_002)
 - [ ] Cycle 1 (EXP_001): OOF Target Encoding baseline vs Regularization (completed baseline, AUC=0.6981)
