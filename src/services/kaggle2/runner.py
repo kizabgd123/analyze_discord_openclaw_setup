@@ -1,0 +1,323 @@
+"""
+runner.py — Isolated Firejail Execution Runner for S6E11 Multi-Agent System.
+=============================================================================
+Executes generated code through strict subprocess execution in a Firejail sandbox:
+  - Working directory restricted to artifacts/kaggle/s6e11/<run_id>/
+  - Minimal explicit environment (env -i style: PATH, LANG, HOME set to run_dir, nothing else)
+  - Default-deny filesystem: $HOME hidden via --whitelist:
+      * Run directory: whitelisted read-write
+      * Data directory: whitelisted read-only (--read-only)
+      * Venv directory: whitelisted read-only (--read-only)
+      * Sensitive paths: ~/.gemini, ~/.config, ~/.bash_history, other projects, .env DENIED
+      * /run/user/ blacklisted (--blacklist=/run/user)
+  - Hard containment: --nonewprivs, --caps.drop=all, --seccomp, --noroot, --private-tmp, --quiet, --net=none
+  - Fail-closed: Wrong firejail path aborts immediately with no unsandboxed fallback.
+  - Process group isolation with hard SIGKILL termination capability.
+  - Optional Kaggle kernel submission for heavy compute.
+"""
+
+import os
+import sys
+import json
+import signal
+import asyncio
+import logging
+from typing import Dict, Any, Optional, List
+from datetime import datetime, timezone
+from pathlib import Path
+
+logger = logging.getLogger("Kaggle2.Runner")
+
+
+class LocalRunner:
+    """Subprocess runner executing code strictly inside a firejail sandbox."""
+
+    def __init__(
+        self,
+        run_dir: Path,
+        timeout_seconds: int = 600,
+        data_dir: Optional[Path] = None,
+        venv_dir: Optional[Path] = None,
+        firejail_path: str = "/usr/bin/firejail",
+    ):
+        self.run_dir = Path(run_dir)
+        self.timeout_seconds = timeout_seconds
+        self.data_dir = Path(data_dir) if data_dir else Path("/home/kizamladjanijebac/Desktop/discord-openclaw/artifacts/kaggle/s6e11/data")
+        self.venv_dir = Path(venv_dir) if venv_dir else Path("/home/kizamladjanijebac/Desktop/discord-openclaw/venv")
+        self.firejail_path = firejail_path
+        self.current_process: Optional[asyncio.subprocess.Process] = None
+        self.current_pid: Optional[int] = None
+        self._killed_manually: bool = False
+
+    async def execute_script(self, script_path: Path, args: Optional[List[str]] = None) -> Dict[str, Any]:
+        """
+        Executes a Python script in a detached process group inside Firejail sandbox.
+        Captures output, measures elapsed time, and deterministically parses metrics.
+        Fails closed if Firejail is unavailable.
+        """
+        self.run_dir.mkdir(parents=True, exist_ok=True)
+        script_path = Path(script_path)
+        if not script_path.is_file():
+            return {
+                "status": "FAILED",
+                "exit_code": 1,
+                "cv_score": None,
+                "error": f"Script file not found: {script_path}",
+                "stdout": "",
+                "stderr": f"FileNotFoundError: {script_path}",
+                "elapsed_seconds": 0.0
+            }
+
+        # FAIL-CLOSED CHECK: Ensure firejail exists and is executable
+        firejail_bin = Path(self.firejail_path)
+        if not firejail_bin.is_file() or not os.access(firejail_bin, os.X_OK):
+            error_msg = (
+                f"SecurityError: Firejail executable not found or not executable at '{self.firejail_path}'. "
+                f"Unsandboxed execution is strictly prohibited (fail-closed)."
+            )
+            logger.error(f"[LocalRunner] {error_msg}")
+            return {
+                "status": "FAILED",
+                "exit_code": 127,
+                "cv_score": None,
+                "error": error_msg,
+                "stdout": "",
+                "stderr": error_msg,
+                "elapsed_seconds": 0.0
+            }
+
+        # Determine python executable inside venv or sys.executable
+        # Note: Do NOT resolve symlink, so python preserves venv prefix and loads venv site-packages
+        if (self.venv_dir / "bin" / "python3").is_file():
+            python_bin = str(self.venv_dir / "bin" / "python3")
+        elif (self.venv_dir / "bin" / "python").is_file():
+            python_bin = str(self.venv_dir / "bin" / "python")
+        else:
+            python_bin = sys.executable
+
+        # Build Firejail containment command vector (argument vector only, no shell)
+        cmd = [
+            str(firejail_bin.resolve()),
+            "--quiet",
+            "--noprofile",
+            "--net=none",
+            "--nonewprivs",
+            "--caps.drop=all",
+            "--seccomp",
+            "--noroot",
+            "--private-tmp",
+            "--blacklist=/run/user",
+            f"--whitelist={self.run_dir.resolve()}",
+        ]
+
+        # Whitelist data directory read-only if it exists
+        if self.data_dir.exists():
+            cmd.append(f"--whitelist={self.data_dir.resolve()}")
+            cmd.append(f"--read-only={self.data_dir.resolve()}")
+
+        # Whitelist venv directory read-only if it exists
+        if self.venv_dir.exists():
+            cmd.append(f"--whitelist={self.venv_dir.resolve()}")
+            cmd.append(f"--read-only={self.venv_dir.resolve()}")
+
+        # Append Python executable, script path, and arguments
+        cmd.extend([python_bin, str(script_path.resolve())] + (args or []))
+
+        # Minimal explicit environment (env -i style)
+        # PATH, LANG, HOME set to the run folder, nothing else.
+        clean_env = {
+            "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "LANG": "C.UTF-8",
+            "HOME": str(self.run_dir.resolve()),
+        }
+
+        log_file = self.run_dir / "execution.log"
+        start_time = asyncio.get_event_loop().time()
+        self._killed_manually = False
+
+        logger.info(f"[LocalRunner] Sandboxed execution of {script_path.name} in {self.run_dir} (timeout={self.timeout_seconds}s)")
+
+        try:
+            # preexec_fn=os.setsid enables killing the entire process group
+            self.current_process = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=str(self.run_dir),
+                env=clean_env,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                preexec_fn=os.setsid
+            )
+            self.current_pid = self.current_process.pid
+
+            try:
+                stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                    self.current_process.communicate(),
+                    timeout=self.timeout_seconds
+                )
+            except asyncio.TimeoutError:
+                logger.warning(f"[LocalRunner] Process {self.current_pid} timed out after {self.timeout_seconds}s. Killing...")
+                await self.kill()
+                elapsed = asyncio.get_event_loop().time() - start_time
+                return {
+                    "status": "FAILED",
+                    "exit_code": -9,
+                    "cv_score": None,
+                    "error": f"Execution timed out after {self.timeout_seconds} seconds (SIGKILL applied)",
+                    "stdout": "",
+                    "stderr": "TimeoutExpired: Process exceeded execution budget",
+                    "elapsed_seconds": elapsed
+                }
+
+            elapsed = asyncio.get_event_loop().time() - start_time
+            stdout_text = stdout_bytes.decode("utf-8", errors="replace")
+            stderr_text = stderr_bytes.decode("utf-8", errors="replace")
+
+            # Write combined log
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(f"\n--- EXECUTION RUN: {datetime.now(timezone.utc).isoformat()} ---\n")
+                f.write(f"STDOUT:\n{stdout_text}\n")
+                f.write(f"STDERR:\n{stderr_text}\n")
+
+            if self._killed_manually:
+                return {
+                    "status": "FAILED",
+                    "exit_code": -9,
+                    "cv_score": None,
+                    "error": "Process was terminated manually by Stop signal",
+                    "stdout": stdout_text,
+                    "stderr": stderr_text or "Process killed by operator",
+                    "elapsed_seconds": elapsed
+                }
+
+            exit_code = self.current_process.returncode
+            if exit_code != 0:
+                return {
+                    "status": "FAILED",
+                    "exit_code": exit_code,
+                    "cv_score": None,
+                    "error": f"Script exited with code {exit_code}",
+                    "stdout": stdout_text,
+                    "stderr": stderr_text,
+                    "elapsed_seconds": elapsed
+                }
+
+            # Parse CV score from output
+            cv_score = self._extract_cv_score(stdout_text)
+            status = "PASSED" if cv_score is not None else "UNVERIFIED"
+
+            return {
+                "status": status,
+                "exit_code": exit_code,
+                "cv_score": cv_score,
+                "error": None if status == "PASSED" else "No valid CV_ROC_AUC metric found in script output",
+                "stdout": stdout_text,
+                "stderr": stderr_text,
+                "elapsed_seconds": elapsed
+            }
+
+        except Exception as exc:
+            elapsed = asyncio.get_event_loop().time() - start_time
+            logger.error(f"[LocalRunner] Unexpected runner error: {exc}")
+            return {
+                "status": "FAILED",
+                "exit_code": 1,
+                "cv_score": None,
+                "error": f"Runner failure: {type(exc).__name__}: {exc}",
+                "stdout": "",
+                "stderr": str(exc),
+                "elapsed_seconds": elapsed
+            }
+        finally:
+            self.current_process = None
+            self.current_pid = None
+
+    async def kill(self) -> bool:
+        """Kills the active process group and verifies no leftover PID."""
+        if self.current_process and self.current_pid:
+            self._killed_manually = True
+            pid = self.current_pid
+            try:
+                pgid = os.getpgid(pid)
+                os.killpg(pgid, signal.SIGKILL)
+                logger.info(f"[LocalRunner] Sent SIGKILL to process group {pgid} (PID: {pid})")
+            except ProcessLookupError:
+                pass
+            except Exception as e:
+                logger.warning(f"Error killing process group {pid}: {e}")
+
+            # Verification: wait briefly and check ps
+            await asyncio.sleep(0.2)
+            is_dead = not self._check_pid_exists(pid)
+            return is_dead
+        return True
+
+    @staticmethod
+    def _check_pid_exists(pid: int) -> bool:
+        try:
+            os.kill(pid, 0)
+            return True
+        except (ProcessLookupError, OSError):
+            return False
+
+    @staticmethod
+    def _extract_cv_score(stdout_text: str) -> Optional[float]:
+        """Looks for deterministic CV metric tags like CV_ROC_AUC: 0.9512 or JSON metric block."""
+        import re
+        # Pattern 1: JSON output
+        for line in stdout_text.splitlines():
+            line = line.strip()
+            if line.startswith("{") and line.endswith("}"):
+                try:
+                    payload = json.loads(line)
+                    if "cv_roc_auc" in payload:
+                        return float(payload["cv_roc_auc"])
+                    if "cv_score" in payload:
+                        return float(payload["cv_score"])
+                except Exception:
+                    pass
+
+        # Pattern 2: Regex for CV_ROC_AUC / ROC_AUC
+        match = re.search(r"(?:CV_ROC_AUC|ROC_AUC|CV_AUC|ROC-AUC)\s*[:=]\s*([0-9]+\.[0-9]+)", stdout_text, re.IGNORECASE)
+        if match:
+            try:
+                return float(match.group(1))
+            except ValueError:
+                pass
+        return None
+
+
+class KernelRunner:
+    """Kaggle Kernel compute runner for heavy GPU jobs."""
+
+    def __init__(self, run_dir: Path):
+        self.run_dir = Path(run_dir)
+
+    async def push_and_wait(self, kernel_slug: str, poll_interval: int = 15, max_wait: int = 3600) -> Dict[str, Any]:
+        """Pushes kernel folder to Kaggle and monitors status until complete."""
+        push_cmd = ["kaggle", "kernels", "push", "-p", str(self.run_dir)]
+        proc = await asyncio.create_subprocess_exec(*push_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            return {"status": "FAILED", "error": stderr.decode().strip() or stdout.decode().strip()}
+
+        logger.info(f"[KernelRunner] Pushed {kernel_slug}. Polling status...")
+        start_time = asyncio.get_event_loop().time()
+
+        while asyncio.get_event_loop().time() - start_time < max_wait:
+            status_cmd = ["kaggle", "kernels", "status", kernel_slug]
+            sproc = await asyncio.create_subprocess_exec(*status_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            s_out, _ = await sproc.communicate()
+            status_text = s_out.decode().strip()
+
+            if "complete" in status_text.lower():
+                output_dir = self.run_dir / "output"
+                output_dir.mkdir(parents=True, exist_ok=True)
+                out_cmd = ["kaggle", "kernels", "output", kernel_slug, "-p", str(output_dir)]
+                await asyncio.create_subprocess_exec(*out_cmd)
+                return {"status": "PASSED", "message": status_text, "output_dir": str(output_dir)}
+            elif "error" in status_text.lower():
+                return {"status": "FAILED", "error": f"Kernel execution failed: {status_text}"}
+
+            await asyncio.sleep(poll_interval)
+
+        return {"status": "FAILED", "error": f"Kernel execution timed out after {max_wait}s"}
