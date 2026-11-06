@@ -90,7 +90,7 @@ def parse_llm_json(raw_text: str) -> Optional[Dict[str, Any]]:
 class DebateEngine:
     """Orchestrates genuine 5-stage adversarial review between Strategist and Skeptic."""
 
-    def __init__(self, model_name: str = "gemini-3.8-flash-high", account: str = "kiza101288@gmail.com"):
+    def __init__(self, model_name: str = "claude-sonnet-4-6", account: str = "999@mrcleanervracar.com"):
         self.model_name = model_name
         self.account = account
 

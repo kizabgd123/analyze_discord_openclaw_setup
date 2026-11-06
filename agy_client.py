@@ -49,7 +49,7 @@ def _execute_single_agy_run(
     system: Optional[str] = None,
     model: str = "claude-sonnet-4-6",
     account: str = "999@mrcleanervracar.com",
-    timeout: int = 45,
+    timeout: int = 130,
 ) -> str:
     """Runs a single prompt under a specific Antigravity account."""
     if not os.path.exists(AGY_BIN):
@@ -134,7 +134,7 @@ def query_agy_cli(
     system: Optional[str] = None,
     model: str = "claude-sonnet-4-6",
     account: Optional[str] = None,
-    timeout: int = 150,
+    timeout: int = 130,
     auto_failover: bool = True,
 ) -> str:
     """
@@ -149,8 +149,8 @@ def query_agy_cli(
             if acc not in candidate_accounts:
                 candidate_accounts.append(acc)
 
-    # Allocate per-account timeout (min 35s per candidate attempt, max total timeout)
-    per_account_timeout = max(35, min(60, timeout // max(1, len(candidate_accounts))))
+    # Allocate per-account timeout (strictly 130s so Claude/Gemini have time to respond)
+    per_account_timeout = max(130, timeout)
 
     last_error: Optional[Exception] = None
     for acc in candidate_accounts:

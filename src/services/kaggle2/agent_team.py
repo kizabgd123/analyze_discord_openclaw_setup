@@ -52,7 +52,7 @@ class AgentTeamOrchestrator:
         self.runner = LocalRunner(run_dir=self.run_dir, timeout_seconds=600)
         self.lesson_service = LessonService(run_dir=self.run_dir, notebook_client=self.notebook_client)
         self.submission_service = SubmissionService(run_id=self.run_id)
-        self.debate_engine = DebateEngine(model_name="gemini-3.8-flash-high", account="kiza101288@gmail.com")
+        self.debate_engine = DebateEngine(model_name="claude-sonnet-4-6", account="999@mrcleanervracar.com")
 
         self.is_running: bool = False
         self.is_paused: bool = False

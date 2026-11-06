@@ -153,19 +153,19 @@ def query_llm(
     system: Optional[str] = None,
     model: Optional[str] = None,
     temperature: float = 0.2,
-    timeout: int = 150,
+    timeout: int = 130,
     prefer_agy: bool = True,
     prefer_cloud_ollama: bool = False,
     account: Optional[str] = None,
 ) -> str:
     """
     Unified LLM call:
-    - Primary: Antigravity CLI (`agy`) using `gemini-3.8-flash-high` and account `kiza101288@gmail.com`.
+    - Primary: Antigravity CLI (`agy`) using `claude-sonnet-4-6` and account `999@mrcleanervracar.com`.
     - Fallback 1: Cloud Ollama endpoint.
     - Fallback 2: Official Gemini CLI (gemini-3.5-flash-lite).
     """
-    use_model = model or "gemini-3.8-flash-high"
-    selected_account = account or os.getenv("AGY_ACCOUNT", "kiza101288@gmail.com")
+    use_model = model or "claude-sonnet-4-6"
+    selected_account = account or os.getenv("AGY_ACCOUNT", "999@mrcleanervracar.com")
 
     if prefer_agy and not prefer_cloud_ollama:
         try:
