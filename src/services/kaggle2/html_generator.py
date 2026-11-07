@@ -15,6 +15,12 @@ from pathlib import Path
 logger = logging.getLogger("Kaggle2.HTMLGenerator")
 
 
+def _safe_escape(val: Any, default: str = "") -> str:
+    if val is None:
+        return html.escape(default)
+    return html.escape(str(val))
+
+
 def render_html_dashboard(state: Dict[str, Any], output_path: Path) -> Path:
     """
     Renders the complete self-contained HTML report.
@@ -115,22 +121,22 @@ def render_html_dashboard(state: Dict[str, Any], output_path: Path) -> Path:
     # 4. NotebookLM Q&A section
     nlm_cards = ""
     for q in nlm_queries:
-        q_agent = html.escape(q.get("agent", "Agent"))
-        q_reason = html.escape(q.get("reason", "general"))
+        q_agent = _safe_escape(q.get("agent"), "Agent")
+        q_reason = _safe_escape(q.get("reason"), "general")
         q_latency = f"{q.get('latency_seconds', 0.0):.1f}s"
-        q_text = html.escape(q.get("question", ""))
-        ans_text = html.escape(q.get("answer") or "(No answer returned)")
-        q_time = html.escape(q.get("timestamp", ""))
-        q_status = html.escape(q.get("status", "PASSED"))
+        q_text = _safe_escape(q.get("question"), "")
+        ans_text = _safe_escape(q.get("answer") or "(No answer returned)")
+        q_time = _safe_escape(q.get("timestamp"), "")
+        q_status = _safe_escape(q.get("status") or "PASSED")
         citations = q.get("citations", {})
         err = q.get("error")
 
         citations_html = ""
         if citations:
-            cit_items = "".join([f"<li><strong>[{html.escape(str(k))}]</strong> Source ID: {html.escape(str(v))}</li>" for k, v in citations.items()])
+            cit_items = "".join([f"<li><strong>[{_safe_escape(k)}]</strong> Source ID: {_safe_escape(v)}</li>" for k, v in citations.items()])
             citations_html = f'<div class="citations-box"><h4>Citations:</h4><ul>{cit_items}</ul></div>'
 
-        error_block = f'<pre class="raw-error">{html.escape(err)}</pre>' if err else ''
+        error_block = f'<pre class="raw-error">{_safe_escape(err)}</pre>' if err else ''
         status_badge = f'<span class="badge badge-{"success" if q_status == "PASSED" else "danger"}">{q_status}</span>'
 
         nlm_cards += f"""

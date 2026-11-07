@@ -24,6 +24,8 @@ import subprocess
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 from pathlib import Path
+import numpy as np
+import pandas as pd
 
 from src.services.kaggle2.notebook_client import NotebookLMClient
 from src.services.kaggle2.runner import LocalRunner
@@ -31,8 +33,30 @@ from src.services.kaggle2.lesson_service import LessonService
 from src.services.kaggle2.submission_service import SubmissionService
 from src.services.kaggle2.html_generator import render_html_dashboard
 from src.services.kaggle2.debate_engine import DebateEngine, hash_text, parse_llm_json
+from gemini_client import query_llm, query_llm_with_lineage, LLMResponse
 
 logger = logging.getLogger("Kaggle2.AgentTeam")
+
+
+def _extract_lineage_dict(resp_obj: Any) -> Dict[str, Any]:
+    """Extract a serialisable lineage dict from an LLMResponse (or any fallback object)."""
+    if isinstance(resp_obj, LLMResponse):
+        return {
+            "provider": resp_obj.provider,
+            "model": resp_obj.model,
+            "account": resp_obj.account,
+            "latency_seconds": round(resp_obj.latency_seconds, 3),
+            "fallback_chain": list(resp_obj.fallback_chain),
+            "exit_code": resp_obj.exit_code,
+        }
+    return {
+        "provider": "unknown",
+        "model": "unknown",
+        "account": None,
+        "latency_seconds": 0.0,
+        "fallback_chain": [],
+        "exit_code": 0,
+    }
 
 
 class AgentTeamOrchestrator:
@@ -54,8 +78,10 @@ class AgentTeamOrchestrator:
         self.submission_service = SubmissionService(run_id=self.run_id)
         self.debate_engine = DebateEngine(model_name="claude-sonnet-4-6", account="999@mrcleanervracar.com")
         from src.services.kaggle2.baton_manager import BatonManager
+        from src.services.kaggle2.stacking_engine import FourLevelStacker
         self.baton_manager = BatonManager(run_dir=self.run_dir)
         self.baton_manager.initialize_cookbooks()
+        self.four_level_stacker = FourLevelStacker(run_dir=str(self.run_dir))
         self.authoritative_fold_hash = "bb6cda09006260033590976687e28c1f73ec418812ce5240988f12cd207c1db3"
 
         self.is_running: bool = False
@@ -274,7 +300,6 @@ class AgentTeamOrchestrator:
           9. Honest lesson generated and recorded.
         """
         import re
-        from gemini_client import query_llm, query_llm_with_lineage, LLMResponse
 
         if not self.is_running:
             return {"status": "STOPPED", "message": "Orchestrator is not running"}
@@ -285,6 +310,7 @@ class AgentTeamOrchestrator:
         self.exp_nlm_time = 0.0
         exp_start_time = asyncio.get_event_loop().time()
         phase_timings = {"nlm_seconds": 0.0, "runner_seconds": 0.0}
+        turns_lineage: Dict[str, Any] = {}
 
         # ── Step 1: Pre-planning lesson query ──
         nlm_t0 = asyncio.get_event_loop().time()
@@ -334,18 +360,37 @@ class AgentTeamOrchestrator:
             system="You are the ML Strategist. Ground every claim in facts. Do not write code."
         )
         strat_resp = strat_resp_obj.text if isinstance(strat_resp_obj, LLMResponse) else str(strat_resp_obj)
-        lineage_model = strat_resp_obj.model if isinstance(strat_resp_obj, LLMResponse) else "unknown"
-        lineage_account = strat_resp_obj.account if isinstance(strat_resp_obj, LLMResponse) else None
-        lineage_provider = strat_resp_obj.provider if isinstance(strat_resp_obj, LLMResponse) else "unknown"
+        turns_lineage["proposal"] = _extract_lineage_dict(strat_resp_obj)
+        lineage_model = turns_lineage["proposal"]["model"]
+        lineage_account = turns_lineage["proposal"]["account"]
+        lineage_provider = turns_lineage["proposal"]["provider"]
 
         self.append_transcript(agent="Strategist", role="Strategist", message=strat_resp)
         if not self.is_running:
             return {"status": "STOPPED"}
 
-        # Parse and validate proposal
+        # Parse and validate proposal — with 1 Re-Ask on parse failure
         prop_dict = parse_llm_json(strat_resp)
         if not prop_dict:
-            prop_dict = self.debate_engine.adapt_legacy_proposal_text(strat_resp, exp_no)
+            logger.warning("[Strategist Proposal] JSON parse failed. Executing 1 re-ask attempt...")
+            from src.services.kaggle2.debate_engine import STRATEGIST_REQUIRED_FIELDS
+            reask_prompt = (
+                f"Your previous proposal could not be parsed as valid JSON.\n"
+                f"Raw response was:\n```\n{strat_resp[:1200]}\n```\n\n"
+                f"Return ONLY a strictly valid JSON object matching this schema with NO markdown wrapping outside ```json:\n"
+                f"{STRATEGIST_REQUIRED_FIELDS}"
+            )
+            reask_obj = await asyncio.to_thread(
+                query_llm_with_lineage,
+                reask_prompt,
+                system="You are the ML Strategist. Return only valid JSON."
+            )
+            reask_text = reask_obj.text if isinstance(reask_obj, LLMResponse) else str(reask_obj)
+            turns_lineage["proposal_reask"] = _extract_lineage_dict(reask_obj)
+            prop_dict = parse_llm_json(reask_text)
+            if not prop_dict:
+                prop_dict = self.debate_engine.adapt_legacy_proposal_text(strat_resp, exp_no)
+
 
         val_ok, val_err = self.debate_engine.validate_strategist_proposal(prop_dict)
         if not val_ok:
@@ -397,11 +442,13 @@ class AgentTeamOrchestrator:
             fact_check_context=skep_check_ans[:600]
         )
         skep_prompt_sha = hash_text(skep_prompt)
-        skep_resp = await asyncio.to_thread(
-            query_llm,
+        skep_resp_obj = await asyncio.to_thread(
+            query_llm_with_lineage,
             skep_prompt,
             system="You are the ML Skeptic. Enforce strict leakage and rule integrity."
         )
+        skep_resp = skep_resp_obj.text if isinstance(skep_resp_obj, LLMResponse) else str(skep_resp_obj)
+        turns_lineage["skeptic_review"] = _extract_lineage_dict(skep_resp_obj)
         self.append_transcript(agent="Skeptic", role="Skeptic", message=skep_resp)
         if not self.is_running:
             return {"status": "STOPPED"}
@@ -430,7 +477,21 @@ class AgentTeamOrchestrator:
 
         skep_review = parse_llm_json(skep_resp)
         if not skep_review:
-            skep_review = self.debate_engine.adapt_legacy_review_text(skep_resp, exp_no)
+            logger.warning("[Skeptic Review] JSON parse failed. Executing 1 re-ask attempt...")
+            reask_skep_obj = await asyncio.to_thread(
+                query_llm_with_lineage,
+                (
+                    f"Your previous skeptic review could not be parsed as valid JSON.\n"
+                    f"Raw response was:\n```\n{skep_resp[:1200]}\n```\n\n"
+                    f"Return ONLY a strictly valid JSON object for the skeptic review with NO markdown outside ```json."
+                ),
+                system="You are the ML Skeptic. Return only valid JSON."
+            )
+            reask_skep_text = reask_skep_obj.text if isinstance(reask_skep_obj, LLMResponse) else str(reask_skep_obj)
+            turns_lineage["skeptic_review_reask"] = _extract_lineage_dict(reask_skep_obj)
+            skep_review = parse_llm_json(reask_skep_text)
+            if not skep_review:
+                skep_review = self.debate_engine.adapt_legacy_review_text(skep_resp, exp_no)
 
         initial_verdict = _parse_verdict(skep_resp)
         final_verdict = initial_verdict
@@ -451,7 +512,9 @@ class AgentTeamOrchestrator:
                 exp_no=exp_no
             )
             rebut_prompt_sha = hash_text(rebut_prompt)
-            rebut_resp = await asyncio.to_thread(query_llm, rebut_prompt, system="You are the Strategist. Rebut or revise.")
+            rebut_resp_obj = await asyncio.to_thread(query_llm_with_lineage, rebut_prompt, system="You are the Strategist. Rebut or revise.")
+            rebut_resp = rebut_resp_obj.text if isinstance(rebut_resp_obj, LLMResponse) else str(rebut_resp_obj)
+            turns_lineage["rebuttal"] = _extract_lineage_dict(rebut_resp_obj)
             self.append_transcript(agent="Strategist", role="Strategist", message=rebut_resp)
             rebut_dict = parse_llm_json(rebut_resp)
 
@@ -462,18 +525,34 @@ class AgentTeamOrchestrator:
                 exp_no=exp_no
             )
             final_skep_prompt_sha = hash_text(final_skep_prompt)
-            final_skep_resp = await asyncio.to_thread(query_llm, final_skep_prompt, system="You are the Skeptic. Render final verdict.")
+            final_skep_resp_obj = await asyncio.to_thread(query_llm_with_lineage, final_skep_prompt, system="You are the Skeptic. Render final verdict.")
+            final_skep_resp = final_skep_resp_obj.text if isinstance(final_skep_resp_obj, LLMResponse) else str(final_skep_resp_obj)
+            turns_lineage["final_skeptic"] = _extract_lineage_dict(final_skep_resp_obj)
             self.append_transcript(agent="Skeptic", role="Skeptic", message=final_skep_resp)
             final_verdict = _parse_verdict(final_skep_resp)
             deciding_reason = _parse_reason(final_skep_resp)
 
             final_skep_review = parse_llm_json(final_skep_resp)
             if not final_skep_review:
-                final_skep_review = self.debate_engine.adapt_legacy_final_text(
-                    final_skep_resp,
-                    exp_no,
-                    original_objections=skep_review.get("objections", [])
+                logger.warning("[Final Skeptic] JSON parse failed. Executing 1 re-ask attempt...")
+                reask_fs_obj = await asyncio.to_thread(
+                    query_llm_with_lineage,
+                    (
+                        f"Your previous final skeptic review could not be parsed as valid JSON.\n"
+                        f"Raw response was:\n```\n{final_skep_resp[:1200]}\n```\n\n"
+                        f"Return ONLY a strictly valid JSON object with final_verdict and deciding_reason. No markdown outside ```json."
+                    ),
+                    system="You are the ML Skeptic. Return only valid JSON."
                 )
+                reask_fs_text = reask_fs_obj.text if isinstance(reask_fs_obj, LLMResponse) else str(reask_fs_obj)
+                turns_lineage["final_skeptic_reask"] = _extract_lineage_dict(reask_fs_obj)
+                final_skep_review = parse_llm_json(reask_fs_text)
+                if not final_skep_review:
+                    final_skep_review = self.debate_engine.adapt_legacy_final_text(
+                        final_skep_resp,
+                        exp_no,
+                        original_objections=skep_review.get("objections", [])
+                    )
         else:
             final_skep_review = {
                 "hypothesis_id": prop_dict.get("hypothesis_id", f"EXP{exp_no}_HYPOTHESIS"),
@@ -489,7 +568,9 @@ class AgentTeamOrchestrator:
             f"DECISION: {'BLOCKED' if final_verdict == 'BLOCK' else 'PROCEED'}\n"
             f"DECIDING_REASON: <concise summary>"
         )
-        strat_dec_resp = await asyncio.to_thread(query_llm, strat_dec_prompt, system="You are the Strategist. State final decision.")
+        strat_dec_resp_obj = await asyncio.to_thread(query_llm_with_lineage, strat_dec_prompt, system="You are the Strategist. State final decision.")
+        strat_dec_resp = strat_dec_resp_obj.text if isinstance(strat_dec_resp_obj, LLMResponse) else str(strat_dec_resp_obj)
+        turns_lineage["strategist_decision"] = _extract_lineage_dict(strat_dec_resp_obj)
         self.append_transcript(agent="Strategist", role="Strategist", message=strat_dec_resp)
         deciding_reason = _parse_reason(strat_dec_resp) or deciding_reason
 
@@ -504,6 +585,7 @@ class AgentTeamOrchestrator:
             "model": lineage_model,
             "account": lineage_account,
             "provider": lineage_provider,
+            "turns": turns_lineage,
             "prompt_sha256": {
                 "proposal": strat_prompt_sha,
                 "review": skep_prompt_sha,
@@ -625,7 +707,9 @@ def train_predict(X_train: pd.DataFrame, y_train: pd.Series, X_val: pd.DataFrame
 ```
 Return ONLY the runnable Python code for `model_part.py` inside ```python ... ```.
 """
-        eng_code_raw = await asyncio.to_thread(query_llm, eng_prompt, system="You are the ML Engineer. Return only valid python code.")
+        eng_code_resp_obj = await asyncio.to_thread(query_llm_with_lineage, eng_prompt, system="You are the ML Engineer. Return only valid python code.")
+        eng_code_raw = eng_code_resp_obj.text if isinstance(eng_code_resp_obj, LLMResponse) else str(eng_code_resp_obj)
+        turns_lineage["engineer_code"] = _extract_lineage_dict(eng_code_resp_obj)
         match = re.search(r"```(?:python)?\s*\n(.*?)\n```", eng_code_raw, re.DOTALL)
         code_str = match.group(1) if match else eng_code_raw
 
@@ -642,6 +726,16 @@ Return ONLY the runnable Python code for `model_part.py` inside ```python ... ``
         scaffold_src = Path(__file__).parent / "scaffold_runner.py"
         scaffold_dst = self.run_dir / "run_scaffold.py"
         shutil.copyfile(scaffold_src, scaffold_dst)
+
+        # Copy KGMON Feature Engine into run_dir so models can import it inside sandbox
+        fe_src = Path(__file__).parent / "feature_engine.py"
+        if fe_src.exists():
+            shutil.copyfile(fe_src, self.run_dir / "feature_engine.py")
+
+        # Copy KGMON recipes into run_dir
+        recipes_src = Path("artifacts/kaggle/cookbooks/kgmon_playbook_recipes.py")
+        if recipes_src.exists():
+            shutil.copyfile(recipes_src, self.run_dir / "kgmon_playbook_recipes.py")
 
         self.append_transcript(agent="Engineer", role="Engineer", message=f"Generated `model_part.py` ({len(code_str)} bytes) conforming to Scaffold contract.")
         if not self.is_running:
@@ -910,3 +1004,25 @@ Return ONLY the corrected Python code inside ```python ... ```.
             "results": results,
             "html_view": str(self.html_file)
         }
+
+    def run_1feature_screening(
+        self,
+        candidate_feature: pd.Series,
+        base_oof_probs: np.ndarray,
+        y_true: np.ndarray
+    ) -> Dict[str, Any]:
+        """Runs fast CPU 1-feature screening before committing full GPU cycle."""
+        from src.services.kaggle2.screening_and_masking import fast_1feature_cpu_screening
+        return fast_1feature_cpu_screening(base_oof_probs, y_true, candidate_feature)
+
+    def mask_submission_file(self, submission_file: Path) -> Path:
+        """Applies upside-down predictions to submission file to conceal LB score."""
+        import pandas as pd
+        from src.services.kaggle2.screening_and_masking import mask_submission_predictions
+        df_sub = pd.read_csv(submission_file)
+        if "is_fraud" in df_sub.columns:
+            df_sub["is_fraud"] = mask_submission_predictions(df_sub["is_fraud"].to_numpy())
+            masked_path = submission_file.parent / f"masked_{submission_file.name}"
+            df_sub.to_csv(masked_path, index=False)
+            return masked_path
+        return submission_file

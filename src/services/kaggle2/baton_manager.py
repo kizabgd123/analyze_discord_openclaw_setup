@@ -20,6 +20,7 @@ logger = logging.getLogger("Kaggle2.BatonManager")
 
 COOKBOOKS_DIR = Path("artifacts/kaggle/cookbooks")
 SYNTHETIC_COOKBOOK_PATH = COOKBOOKS_DIR / "synthetic_features_cookbook.py"
+KGMON_RECIPES_PATH = COOKBOOKS_DIR / "kgmon_playbook_recipes.py"
 
 VETTED_COOKBOOK_CODE = '''"""
 synthetic_features_cookbook.py — Vetted Feature Engineering Recipes for S6E11
@@ -80,10 +81,22 @@ class BatonManager:
     def __init__(self, run_dir: Path, competition: str = "playground-series-s6e11"):
         self.run_dir = Path(run_dir)
         self.competition = competition
-        self.plan_file = self.run_dir / "plan.md"
-        self.progress_file = self.run_dir / "progress.md"
-        self.discoveries_file = self.run_dir / "discoveries.md"
-        self.closed_ideas_file = self.run_dir / "closed_ideas.md"
+
+    @property
+    def plan_file(self) -> Path:
+        return self.run_dir / "plan.md"
+
+    @property
+    def progress_file(self) -> Path:
+        return self.run_dir / "progress.md"
+
+    @property
+    def discoveries_file(self) -> Path:
+        return self.run_dir / "discoveries.md"
+
+    @property
+    def closed_ideas_file(self) -> Path:
+        return self.run_dir / "closed_ideas.md"
 
     def initialize_cookbooks(self) -> Path:
         """Initializes shared cookbooks repository with vetted recipes."""
@@ -92,6 +105,10 @@ class BatonManager:
             SYNTHETIC_COOKBOOK_PATH.write_text(VETTED_COOKBOOK_CODE, encoding="utf-8")
             logger.info(f"[BatonManager] Vetted features cookbook initialized at {SYNTHETIC_COOKBOOK_PATH}")
         return SYNTHETIC_COOKBOOK_PATH
+
+    def update_progress(self, state: Dict[str, Any]) -> Dict[str, str]:
+        """Alias for update_baton to maintain compatibility with test suites and runners."""
+        return self.update_baton(state)
 
     def update_baton(self, state: Dict[str, Any]) -> Dict[str, str]:
         """Regenerates all authoritative Baton markdown files deterministically."""
@@ -161,17 +178,31 @@ class BatonManager:
         self.discoveries_file.write_text("\n".join(disc_lines) + "\n", encoding="utf-8")
 
         # 4. plan.md
+        current_leg = "Leg 1 (Baselines & Initial Duel)"
+        if len(experiments) >= 10:
+            current_leg = "Leg 3 (4-Level Stacking & Final Meta-Ensemble)"
+        elif len(experiments) >= 3:
+            current_leg = "Leg 2 (Feature Engineering & Synthetic Artifact Exploitation)"
+
         plan_lines = [
-            f"# 📋 Plan Istraživanja (Research Plan) — {self.competition}",
+            f"# 📋 KGMON Plan Istraživanja (Research Plan) — {self.competition}",
             f"* **Run ID:** `{state.get('run_id')}` | **Status:** `ACTIVE`",
+            f"* **Aktivna Štafeta (Relay Leg):** `{current_leg}`",
             f"* **Zamrznuti Split:** `{folds_info}`",
             "",
-            "## Redosled Istraživačkih Faza",
-            "1. **01_EDA:** Detekcija šuma, korelacija i artefakata sintetičkog generatora.",
-            "2. **02_Feature_Engineering:** Digit-trie komponente, M-estimate target kodiranje bez curenja.",
-            "3. **03_Build_Baselines:** Raznovrsne familije modela (LightGBM, XGBoost, CatBoost, GLM).",
-            "4. **04_Stacking:** Slojevito spajanje OOF predikcija meta-modelom (L2 regularizacija).",
-            "5. **05_Hill_Climbing:** Pohlepna selekcija ansambla radi maksimizacije ROC-AUC.",
+            "## Hijerarhija Štafete i 19 Pomoćnih Agenata (Helper Swarm)",
+            "- **Leg 1:** Baselines, 1-na-1 duel (Strategist vs Skeptic), postavljanje 5-fold OOF.",
+            "- **Leg 2:** KGMON Feature Engine (Snap, Decimals, Benford Law, cKDTree Anchors, Nested TE).",
+            "- **Leg 3:** 4-Nivojski Stak (Nivo 1-4) sa L2 Logit Meta-Learnerom.",
+            "- **Helper Swarm:** 13 Documentation Helpers (istorija/cookbooks) + 6 Code Review Helpers (leakage/AST).",
+            "",
+            "## Redosled Istraživačkih Faza (KGMON Playbook 2026)",
+            "1. **01_EDA:** Detekcija generator šuma, Benford odstupanja i korelacija.",
+            "2. **02_Feature_Engineering:** Snap funkcije, decimalni trie, nested M-estimate target kodiranje.",
+            "3. **03_Build_Baselines:** 5 GBDT biblioteka (XGB, LGBM, CatBoost, YDF, RF) + RealMLP/TabM.",
+            "4. **04_Screening:** 1-Feature CPU brzi skrining pre skupih GPU obuka.",
+            "5. **05_Stacking:** 4-Nivojski Logit Stack sa L2 penalizacijom.",
+            "6. **06_Submission_Masking:** Upside-down predikcije (1 - p) radi zaštite konkurentske prednosti.",
             "",
             "## Trenutni Status:",
             f"* **Završeno eksperimenata:** {len(experiments)}",
@@ -184,5 +215,6 @@ class BatonManager:
             "progress": str(self.progress_file),
             "discoveries": str(self.discoveries_file),
             "closed_ideas": str(self.closed_ideas_file),
-            "cookbooks": str(SYNTHETIC_COOKBOOK_PATH)
+            "cookbooks": str(SYNTHETIC_COOKBOOK_PATH),
+            "kgmon_recipes": str(KGMON_RECIPES_PATH)
         }

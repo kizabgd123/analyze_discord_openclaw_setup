@@ -253,41 +253,188 @@ async def test_g_stop_process_kill():
 @pytest.mark.asyncio
 async def test_h_pre_execution_leakage_and_fold_hash_blocking():
     """
-    Test H (Slice 1): Model script with AST leakage (target encoding without inner folds)
-    and/or tampered fold assignments MUST be blocked before the runner starts execution.
+    Test H (Slice 1 — Real E2E): Instantiates a real AgentTeamOrchestrator and calls
+    run_single_experiment(). A model script with AST leakage (target encoding without
+    inner folds) MUST be blocked by validate_pre_execution() BEFORE the runner starts.
+
+    Verifies:
+      1. runner.execute_script is NEVER called.
+      2. state["experiments"] receives a record with status="BLOCKED_PRE_EXECUTION".
+      3. state["failures"] receives a record with type="PRE_EXECUTION_INTEGRITY_VIOLATION".
+      4. BatonManager writes the failure to closed_ideas.md on disk.
     """
     import hashlib
-    from src.services.kaggle2.runner import LocalRunner
+    import asyncio
+    from unittest.mock import patch, AsyncMock, MagicMock
+    from gemini_client import LLMResponse
+    from src.services.kaggle2.agent_team import AgentTeamOrchestrator
+
+    # --- Deterministic LLM stub ---
+    # Returns a valid proposal JSON on first call, then bland text for all subsequent calls.
+    _call_count = {"n": 0}
+    VALID_PROPOSAL_JSON = json.dumps({
+        "hypothesis": "Use LightGBM with frequency encoding on merchant_category",
+        "hypothesis_id": "EXP1_LGBM_FREQ_ENC",
+        "feature_engineering": ["frequency encoding on merchant_category"],
+        "model_family": "LightGBM",
+        "expected_delta_cv": 0.001,
+        "leakage_risk": "none — no target statistics used",
+        "literature_reference": "Prokhorenkova et al. 2018, CatBoost paper",
+        "implementation_complexity": "low",
+        "compute_budget_hours": 0.5
+    })
+
+    def mock_llm_call(prompt, system=None, **kwargs):
+        _call_count["n"] += 1
+        n = _call_count["n"]
+        # Turn 1 → valid proposal; all others → harmless text that parses as BLOCK
+        text = VALID_PROPOSAL_JSON if n == 1 else "VERDICT: PROCEED\nDECIDING_REASON: OK"
+        return LLMResponse(
+            text=text,
+            provider="mock",
+            model="mock-model",
+            account=None,
+            latency_seconds=0.001,
+            fallback_chain=[],
+            exit_code=0,
+        )
+
+    def mock_query_llm(prompt, system=None, **kwargs):
+        return mock_llm_call(prompt, system=system, **kwargs).text
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        run_dir = Path(tmpdir)
-        data_dir = run_dir / "data"
-        data_dir.mkdir(parents=True)
-        (data_dir / "train.csv").write_text("id,amount_usd,is_fraud\n1,10.0,0\n2,20.0,1\n", encoding="utf-8")
-        
-        folds_file = run_dir / "folds.json"
-        folds_file.write_text('{"0": [0], "1": [1]}', encoding="utf-8")
-        auth_hash = hashlib.sha256(folds_file.read_bytes()).hexdigest()
-        
-        leaky_script = run_dir / "model_part.py"
-        leaky_script.write_text(
-            "import pandas as pd\n"
-            "def train_predict(X_train, y_train, X_val, y_val):\n"
-            "    target_means = y_train.groupby(X_train['cat']).mean()\n"
-            "    X_train['cat_te'] = X_train['cat'].map(target_means)\n"
-            "    return [0.5]\n",
-            encoding="utf-8"
+        run_id = "test_run_slice1_e2e"
+        run_dir = Path(tmpdir) / "artifacts" / "kaggle" / "s6e11" / run_id
+
+        # Patch NotebookLMClient to avoid real network calls
+        with patch("src.services.kaggle2.agent_team.NotebookLMClient") as MockNLM, \
+             patch("src.services.kaggle2.agent_team.LessonService") as MockLS, \
+             patch("src.services.kaggle2.agent_team.SubmissionService"), \
+             patch("src.services.kaggle2.agent_team.query_llm_with_lineage", side_effect=mock_llm_call), \
+             patch("src.services.kaggle2.agent_team.query_llm", side_effect=mock_query_llm):
+
+            # Configure NLM mock
+            mock_nlm_inst = MockNLM.return_value
+            mock_nlm_inst.query_notebook = AsyncMock(return_value={"answer": "No context found", "sources": []})
+            mock_nlm_inst.add_source = AsyncMock(return_value={"status": "ok"})
+
+            # Configure LessonService mock
+            mock_ls_inst = MockLS.return_value
+            mock_ls_inst.create_lesson = AsyncMock(return_value={"file_path": str(run_dir / "lesson.md"), "status": "ok"})
+
+            # Instantiate with a tmp-aware run_dir via monkeypatch of Path base
+            with patch("src.services.kaggle2.agent_team.Path") as MockPath:
+                # Use real Path everywhere except we redirect the run_dir construction
+                MockPath.side_effect = lambda *args, **kw: Path(*args, **kw)
+
+                orchestrator = AgentTeamOrchestrator(run_id=run_id)
+
+            # Redirect to our tempdir AFTER construction
+            orchestrator.run_dir = run_dir
+            run_dir.mkdir(parents=True, exist_ok=True)
+            orchestrator.state_file = run_dir / "state.json"
+            orchestrator.state = orchestrator._load_or_create_state()
+            orchestrator.baton_manager.run_dir = run_dir  # redirect MD output
+
+            # Create a leaky model_part.py BEFORE run_single_experiment
+            # so that the engineer turn picks it up (we patch the engineer LLM too)
+            leaky_code = (
+                "import pandas as pd\n"
+                "def train_predict(X_train, y_train, X_val, y_val):\n"
+                "    target_means = y_train.groupby(X_train['cat']).mean()\n"
+                "    X_train['cat_te'] = X_train['cat'].map(target_means)\n"
+                "    return [0.5]\n"
+            )
+
+            # Patch engineer code generation to inject our leaky script
+            original_open = open
+            write_calls = []
+
+            def patched_open(path, mode="r", **kw):
+                p = Path(path)
+                if "model_part" in p.name and "w" in mode:
+                    write_calls.append(str(p))
+                    # Write leaky code instead of whatever LLM generated
+                    import builtins
+                    fh = builtins.open(path, mode, **kw)
+                    return fh
+                return original_open(path, mode, **kw)
+
+            # Simpler approach: just set the engineer LLM to produce leaky code
+            leaky_llm_calls = {"n": 0}
+
+            def mock_llm_with_leaky_engineer(prompt, system=None, **kwargs):
+                leaky_llm_calls["n"] += 1
+                n = leaky_llm_calls["n"]
+                # Turn 1 (proposal) → valid proposal JSON
+                # Turn 2+ (all LLM calls incl. engineer) → leaky code for engineer, PROCEED for others
+                if n == 1:
+                    text = VALID_PROPOSAL_JSON
+                elif "ML Engineer" in (system or ""):
+                    text = f"```python\n{leaky_code}\n```"
+                else:
+                    text = "VERDICT: PROCEED\nDECIDING_REASON: OK"
+                return LLMResponse(
+                    text=text,
+                    provider="mock",
+                    model="mock-model",
+                    account=None,
+                    latency_seconds=0.001,
+                    fallback_chain=[],
+                    exit_code=0,
+                )
+
+            def mock_llm_plain(prompt, system=None, **kwargs):
+                return mock_llm_with_leaky_engineer(prompt, system=system, **kwargs).text
+
+            with patch("src.services.kaggle2.agent_team.query_llm_with_lineage", side_effect=mock_llm_with_leaky_engineer), \
+                 patch("src.services.kaggle2.agent_team.query_llm", side_effect=mock_llm_plain), \
+                 patch.object(orchestrator.runner, "execute_script") as mock_exec:
+
+                # Set a known folds file + authoritative hash to allow fold check to pass
+                # (we want the AST leakage check to be the trigger, not fold hash mismatch)
+                import hashlib as _hl
+                folds_data = b'{"0": [0, 1], "1": [2, 3], "2": [4, 5], "3": [6, 7], "4": [8, 9]}'
+                orchestrator.folds_file = run_dir / "folds.json"
+                orchestrator.folds_file.write_bytes(folds_data)
+                orchestrator.authoritative_fold_hash = _hl.sha256(folds_data).hexdigest()
+
+                orchestrator.is_running = True
+                result = await orchestrator.run_single_experiment(exp_no=1)
+
+        # ── Assertions ──
+        # 1. Status must be BLOCKED_PRE_EXECUTION
+        assert result["status"] == "BLOCKED_PRE_EXECUTION", (
+            f"Expected BLOCKED_PRE_EXECUTION, got {result['status']}"
         )
 
-        runner = LocalRunner(run_dir=run_dir, data_dir=data_dir, folds_file=folds_file)
-        
-        val_res = runner.validate_pre_execution(
-            model_script=leaky_script,
-            manifest_file=None,
-            authoritative_fold_hash=auth_hash
+        # 2. runner.execute_script must NEVER have been called
+        mock_exec.assert_not_called()
+
+        # 3. experiments list must have a BLOCKED_PRE_EXECUTION record
+        blocked_exps = [e for e in orchestrator.state.get("experiments", [])
+                        if e.get("status") == "BLOCKED_PRE_EXECUTION"]
+        assert len(blocked_exps) >= 1, (
+            f"Expected at least 1 BLOCKED_PRE_EXECUTION experiment, found: {orchestrator.state.get('experiments')}"
         )
-        assert val_res["passed"] is False
-        assert any("UnsafeTargetEncodingError" in e for e in val_res["errors"])
+
+        # 4. failures list must have a PRE_EXECUTION_INTEGRITY_VIOLATION record
+        pei_failures = [f for f in orchestrator.state.get("failures", [])
+                        if f.get("type") == "PRE_EXECUTION_INTEGRITY_VIOLATION"]
+        assert len(pei_failures) >= 1, (
+            f"Expected PRE_EXECUTION_INTEGRITY_VIOLATION failure, found: {orchestrator.state.get('failures')}"
+        )
+
+        # 5. BatonManager must have written closed_ideas.md
+        orchestrator.baton_manager.update_progress(orchestrator.state)
+        closed_path = run_dir / "closed_ideas.md"
+        assert closed_path.exists(), "BatonManager must write closed_ideas.md"
+        closed_content = closed_path.read_text(encoding="utf-8")
+        assert "PRE_EXECUTION_INTEGRITY_VIOLATION" in closed_content, (
+            f"Expected PRE_EXECUTION_INTEGRITY_VIOLATION in closed_ideas.md:\n{closed_content}"
+        )
+
+    print("\n[TEST H PASSED] Real E2E: AST leakage blocked pre-execution; runner never called; state updated; BatonManager wrote closed_ideas.md.")
 
 
 def test_i_controller_judgeguard_mtime_and_finally():
