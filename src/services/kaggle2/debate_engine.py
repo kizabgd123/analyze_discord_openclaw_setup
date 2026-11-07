@@ -48,6 +48,15 @@ OBJECTION_REQUIRED_FIELDS = [
 ALLOWED_SKEPTIC_VERDICTS = {"APPROVE", "REJECT", "NEEDS_EVIDENCE"}
 ALLOWED_SEVERITIES = {"CRITICAL", "WARNING", "INFO"}
 
+VERDICT_REGEX = re.compile(
+    r"[\*_]*(?:FINAL_)?VERDICT[\*_]*:?[\*_]*\s*[\*_]*(BLOCK|PROCEED_WITH_CONDITIONS|PROCEED|APPROVE|REJECT|NEEDS_EVIDENCE)[\*_]*",
+    re.IGNORECASE
+)
+REASON_REGEX = re.compile(
+    r"[\*_]*(?:FINAL_REASON|REASON|DECIDING_REASON)[\*_]*:?[\*_]*\s*(.*)",
+    re.IGNORECASE
+)
+
 
 def hash_text(text: str) -> str:
     """Computes SHA-256 hex digest of a string."""
@@ -460,11 +469,17 @@ class DebateEngine:
 
     def adapt_legacy_review_text(self, text: str, exp_no: int) -> Dict[str, Any]:
         """Adapts plain text skeptic review into structured review dict."""
-        m_verdict = re.search(r"(?:FINAL_)?VERDICT:\s*(BLOCK|PROCEED_WITH_CONDITIONS|PROCEED|APPROVE|REJECT)", text, re.IGNORECASE)
-        raw_v = m_verdict.group(1).upper() if m_verdict else "PROCEED"
+        m_verdict = VERDICT_REGEX.search(text)
+        raw_v = m_verdict.group(1).upper() if m_verdict else "BLOCK"
 
-        m_reason = re.search(r"(?:FINAL_REASON|REASON|DECIDING_REASON):\s*(.*)", text, re.IGNORECASE)
+        m_reason = REASON_REGEX.search(text)
         reason = m_reason.group(1).strip() if m_reason else text.splitlines()[-1]
+        if not m_verdict:
+            reason = f"UnparseableReviewFallback: {reason}"
+
+        obj_matches = re.findall(r"(?:OBJECTION\s*\d*[:\s]+)(.*?)(?=(?:OBJECTION|\*\*VERDICT|VERDICT|$))", text, re.IGNORECASE | re.DOTALL)
+        extracted_risks = [o.strip() for o in obj_matches if o.strip()]
+        specific_risk = extracted_risks[0] if extracted_risks else reason
 
         if raw_v in ("BLOCK", "REJECT"):
             return {
@@ -478,6 +493,7 @@ class DebateEngine:
                         "severity": "CRITICAL",
                         "verification_test": "Check competition rules and fold leakage",
                         "reasoning": reason,
+                        "specific_risk": specific_risk,
                     }
                 ],
                 "summary": reason,
@@ -494,6 +510,7 @@ class DebateEngine:
                         "severity": "WARNING",
                         "verification_test": "Verify in-fold constraints",
                         "reasoning": reason,
+                        "specific_risk": specific_risk,
                     }
                 ],
                 "summary": reason,
@@ -513,11 +530,15 @@ class DebateEngine:
         original_objections: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """Adapts plain text skeptic final decision into structured final review dict."""
-        m_verdict = re.search(r"(?:FINAL_)?VERDICT:\s*(BLOCK|PROCEED_WITH_CONDITIONS|PROCEED|APPROVE|REJECT)", text, re.IGNORECASE)
-        raw_v = m_verdict.group(1).upper() if m_verdict else "PROCEED"
-
-        m_reason = re.search(r"(?:FINAL_REASON|REASON|DECIDING_REASON):\s*(.*)", text, re.IGNORECASE)
+        m_verdict = VERDICT_REGEX.search(text)
+        m_reason = REASON_REGEX.search(text)
         reason = m_reason.group(1).strip() if m_reason else text.splitlines()[-1]
+
+        if m_verdict:
+            raw_v = m_verdict.group(1).upper()
+        else:
+            raw_v = "BLOCK"
+            reason = f"UnparseableReviewFallback: {reason}"
 
         objs = original_objections or [{"objection_id": "OBJ_001"}]
 

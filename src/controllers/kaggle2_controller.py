@@ -172,6 +172,22 @@ class Kaggle2Controller:
         asyncio.create_task(self._run_cycle(orchestrator, ctx.channel))
 
     async def _run_cycle(self, orchestrator: AgentTeamOrchestrator, channel: Optional[discord.abc.Messageable]):
+        from judge_guard import JudgeGuard
+        judge = JudgeGuard()
+        action_label = f"Kaggle2 Autonomous Cycle Run {orchestrator.run_id}"
+
+        # 1. log_start osvežava mtime na t=0 (freshness < 300s)
+        judge.log_start(action_label)
+
+        # 2. Striktna verifikacija
+        verdict = judge.verify(action_label)
+        if verdict != "PASSED":
+            judge.log_blocked(action_label, "JudgeGuard safety verification failed")
+            logger.error(f"[Kaggle2Controller] Cycle blocked by JudgeGuard: {verdict}")
+            if channel:
+                await channel.send(f"❌ Autonomni ciklus blokiran od strane JudgeGuard-a: `{verdict}`")
+            return
+
         try:
             res = await orchestrator.run_autonomous_cycle(max_experiments=2, timeout_per_exp=1200)
             if channel:
@@ -194,6 +210,9 @@ class Kaggle2Controller:
             logger.error(f"Error in autonomous cycle: {exc}", exc_info=True)
             if channel:
                 await channel.send(f"❌ Greška u izvršavanju ciklusa agenata: `{exc}`")
+        finally:
+            # 3. Garantovano zatvaranje u WORK_LOG.md
+            judge.log_complete(action_label)
 
 
 kaggle2_controller = Kaggle2Controller()

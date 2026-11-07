@@ -53,6 +53,10 @@ class AgentTeamOrchestrator:
         self.lesson_service = LessonService(run_dir=self.run_dir, notebook_client=self.notebook_client)
         self.submission_service = SubmissionService(run_id=self.run_id)
         self.debate_engine = DebateEngine(model_name="claude-sonnet-4-6", account="999@mrcleanervracar.com")
+        from src.services.kaggle2.baton_manager import BatonManager
+        self.baton_manager = BatonManager(run_dir=self.run_dir)
+        self.baton_manager.initialize_cookbooks()
+        self.authoritative_fold_hash = "bb6cda09006260033590976687e28c1f73ec418812ce5240988f12cd207c1db3"
 
         self.is_running: bool = False
         self.is_paused: bool = False
@@ -101,6 +105,8 @@ class AgentTeamOrchestrator:
             json.dump(self.state, f, indent=2)
         # Regenerate HTML view on every state save
         render_html_dashboard(self.state, self.html_file)
+        if hasattr(self, "baton_manager"):
+            self.baton_manager.update_baton(self.state)
 
     async def initialize_run(self) -> Dict[str, Any]:
         """Sets up frozen folds, pulls sources from NotebookLM, seeds reference baseline, and prepares run."""
@@ -268,7 +274,7 @@ class AgentTeamOrchestrator:
           9. Honest lesson generated and recorded.
         """
         import re
-        from gemini_client import query_llm
+        from gemini_client import query_llm, query_llm_with_lineage, LLMResponse
 
         if not self.is_running:
             return {"status": "STOPPED", "message": "Orchestrator is not running"}
@@ -322,11 +328,16 @@ class AgentTeamOrchestrator:
             literature_context=tech_ans[:3500]
         )
         strat_prompt_sha = hash_text(strat_prompt)
-        strat_resp = await asyncio.to_thread(
-            query_llm,
+        strat_resp_obj = await asyncio.to_thread(
+            query_llm_with_lineage,
             strat_prompt,
             system="You are the ML Strategist. Ground every claim in facts. Do not write code."
         )
+        strat_resp = strat_resp_obj.text if isinstance(strat_resp_obj, LLMResponse) else str(strat_resp_obj)
+        lineage_model = strat_resp_obj.model if isinstance(strat_resp_obj, LLMResponse) else "unknown"
+        lineage_account = strat_resp_obj.account if isinstance(strat_resp_obj, LLMResponse) else None
+        lineage_provider = strat_resp_obj.provider if isinstance(strat_resp_obj, LLMResponse) else "unknown"
+
         self.append_transcript(agent="Strategist", role="Strategist", message=strat_resp)
         if not self.is_running:
             return {"status": "STOPPED"}
@@ -358,8 +369,9 @@ class AgentTeamOrchestrator:
                     "elapsed_seconds": round(elapsed, 2),
                     "debate_lineage": {
                         "hypothesis_id": prop_dict.get("hypothesis_id", f"EXP{exp_no}_HYPOTHESIS"),
-                        "model": "gemini-3.8-flash-high",
-                        "account": "kiza101288@gmail.com",
+                        "model": lineage_model,
+                        "account": lineage_account,
+                        "provider": lineage_provider,
                         "prompt_sha256": {"proposal": strat_prompt_sha},
                         "policy_gate": {"authorized": False, "reason": val_err}
                     }
@@ -407,7 +419,7 @@ class AgentTeamOrchestrator:
                 return "BLOCK"
             if "CONDITION" in upper[:80] or "NEEDS_EVIDENCE" in upper[:80]:
                 return "PROCEED_WITH_CONDITIONS"
-            return "PROCEED"
+            return "BLOCK"
 
         def _parse_reason(text: str) -> str:
             m = re.search(r"(?:DECIDING_REASON|FINAL_REASON|REASON):\s*(.*)", text, re.IGNORECASE)
@@ -489,8 +501,9 @@ class AgentTeamOrchestrator:
 
         debate_lineage = {
             "hypothesis_id": prop_dict.get("hypothesis_id", f"EXP{exp_no}_HYPOTHESIS"),
-            "model": "gemini-3.8-flash-high",
-            "account": "kiza101288@gmail.com",
+            "model": lineage_model,
+            "account": lineage_account,
+            "provider": lineage_provider,
             "prompt_sha256": {
                 "proposal": strat_prompt_sha,
                 "review": skep_prompt_sha,
@@ -644,6 +657,48 @@ Return ONLY the runnable Python code for `model_part.py` inside ```python ... ``
             "--model-module", str(model_module_path.resolve()),
             "--exp-no", str(exp_no)
         ]
+
+        # Pre-Execution Integrity Gate: AST Leakage & Fold Tampering
+        val_res = self.runner.validate_pre_execution(
+            model_script=model_module_path,
+            manifest_file=self.run_dir / "manifest.json" if (self.run_dir / "manifest.json").exists() else None,
+            authoritative_fold_hash=self.authoritative_fold_hash
+        )
+        if not val_res.get("passed", False):
+            block_reasons = "; ".join(val_res.get("errors", []))
+            logger.error(f"[AgentTeam] Exp #{exp_no} BLOCKED PRE-EXECUTION: {block_reasons}")
+            self.record_failure("PRE_EXECUTION_INTEGRITY_VIOLATION", f"Exp #{exp_no} blocked by AST/Fold gate", block_reasons)
+            elapsed = asyncio.get_event_loop().time() - exp_start_time
+            self.state["experiments"].append({
+                "exp_no": exp_no,
+                "hypothesis": prop_dict.get("hypothesis", strat_resp[:160] + "..."),
+                "hypothesis_id": prop_dict.get("hypothesis_id", f"EXP{exp_no}_HYPOTHESIS"),
+                "skeptic_verdict": "BLOCK_PRE_EXEC",
+                "deciding_reason": block_reasons,
+                "code": code_str,
+                "cv_score": None,
+                "fold_scores": {},
+                "verdict_vs_base": "BLOCKED",
+                "paired_diffs": [],
+                "status": "BLOCKED_PRE_EXECUTION",
+                "exit_code": None,
+                "signal": None,
+                "debug_attempts": 0,
+                "phase_timings": phase_timings,
+                "elapsed_seconds": round(elapsed, 2),
+                "script_sha256": hash_text(code_str),
+                "oof_sha256": None,
+                "submission_sha256": None,
+                "git_commit": None,
+                "debate_lineage": debate_lineage
+            })
+            self._save_state()
+            return {
+                "exp_no": exp_no,
+                "status": "BLOCKED_PRE_EXECUTION",
+                "cv_score": None,
+                "error": block_reasons
+            }
 
         runner_start = asyncio.get_event_loop().time()
         exec_res = await self.runner.execute_script(scaffold_dst, args=cmd_args, verify_oof=True, oof_file=oof_file)

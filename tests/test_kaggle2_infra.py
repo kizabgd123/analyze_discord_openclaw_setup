@@ -248,3 +248,86 @@ async def test_g_stop_process_kill():
         verify_proc = subprocess.run(["ps", "-p", str(pid)], capture_output=True, text=True)
         assert str(pid) not in verify_proc.stdout, f"Process PID {pid} was not killed!"
         print(f"\n[TEST G PASSED] Process PID {pid} was cleanly terminated; zero leftover process confirmed by ps.")
+
+
+@pytest.mark.asyncio
+async def test_h_pre_execution_leakage_and_fold_hash_blocking():
+    """
+    Test H (Slice 1): Model script with AST leakage (target encoding without inner folds)
+    and/or tampered fold assignments MUST be blocked before the runner starts execution.
+    """
+    import hashlib
+    from src.services.kaggle2.runner import LocalRunner
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        run_dir = Path(tmpdir)
+        data_dir = run_dir / "data"
+        data_dir.mkdir(parents=True)
+        (data_dir / "train.csv").write_text("id,amount_usd,is_fraud\n1,10.0,0\n2,20.0,1\n", encoding="utf-8")
+        
+        folds_file = run_dir / "folds.json"
+        folds_file.write_text('{"0": [0], "1": [1]}', encoding="utf-8")
+        auth_hash = hashlib.sha256(folds_file.read_bytes()).hexdigest()
+        
+        leaky_script = run_dir / "model_part.py"
+        leaky_script.write_text(
+            "import pandas as pd\n"
+            "def train_predict(X_train, y_train, X_val, y_val):\n"
+            "    target_means = y_train.groupby(X_train['cat']).mean()\n"
+            "    X_train['cat_te'] = X_train['cat'].map(target_means)\n"
+            "    return [0.5]\n",
+            encoding="utf-8"
+        )
+
+        runner = LocalRunner(run_dir=run_dir, data_dir=data_dir, folds_file=folds_file)
+        
+        val_res = runner.validate_pre_execution(
+            model_script=leaky_script,
+            manifest_file=None,
+            authoritative_fold_hash=auth_hash
+        )
+        assert val_res["passed"] is False
+        assert any("UnsafeTargetEncodingError" in e for e in val_res["errors"])
+
+
+def test_i_controller_judgeguard_mtime_and_finally():
+    """
+    Test I (Slice 3): Zero-mock test using tempfile and os.utime to verify JudgeGuard:
+      - Stale log (360s old) -> BLOCKED
+      - log_start() updates mtime to t=0 -> PASSED
+      - try/finally guarantees log_complete() in WORK_LOG.md
+    """
+    import time
+    from judge_guard import JudgeGuard
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        temp_log = Path(tmpdir) / "WORK_LOG.md"
+        temp_log.write_text("2026-11-07T12:00:00Z | 🟡 Starting Previous Task\n", encoding="utf-8")
+
+        # 1. Stale WORK_LOG.md (360 seconds in the past)
+        stale_time = time.time() - 360
+        os.utime(temp_log, (stale_time, stale_time))
+
+        judge = JudgeGuard(work_log_path=temp_log, freshness_seconds=300)
+        action_label = "Kaggle2 Autonomous Cycle Run test_run_infra"
+
+        # Stale log must fail closed to BLOCKED
+        verdict = judge.verify(action_label)
+        assert verdict == "BLOCKED"
+
+        # 2. log_start() appends start marker and refreshes file mtime
+        judge.log_start(action_label)
+        verdict_after_start = judge.verify(action_label)
+        assert verdict_after_start == "PASSED"
+
+        # 3. Simulate controller execution with try/finally
+        try:
+            executed = True
+        finally:
+            judge.log_complete(action_label)
+
+        log_content = temp_log.read_text(encoding="utf-8")
+        assert f"🟡 Starting {action_label}" in log_content
+        assert f"✅ Completed {action_label}" in log_content
+
+

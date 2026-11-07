@@ -291,3 +291,73 @@ def test_10_model_independence_and_debate_lineage_record(debate_engine):
     assert lineage["account"] == "kiza101288@gmail.com"
     assert lineage["prompt_sha256"]["proposal"] == h
     assert lineage["policy_gate"]["authorized"] is True
+
+
+# ── Test 11: Malformed LLM text fails closed to BLOCK ──
+def test_11_malformed_llm_text_fails_closed_to_block(debate_engine):
+    malformed_text = "I think the idea looks fine overall. Let's see how it runs."
+    final_res = debate_engine.adapt_legacy_final_text(malformed_text, exp_no=1)
+    assert final_res["final_verdict"] == "REJECT"
+    assert "UnparseableReviewFallback" in final_res["deciding_reason"]
+    assert any(res["status"] == "UNRESOLVED" for res in final_res["objection_resolutions"])
+
+    review_res = debate_engine.adapt_legacy_review_text(malformed_text, exp_no=1)
+    assert review_res["overall_verdict"] == "REJECT"
+    assert len(review_res["objections"]) > 0
+
+
+# ── Test 12: Markdown bold verdict parsed correctly ──
+def test_12_markdown_bold_verdict_parsed_correctly(debate_engine):
+    bold_block = "**FINAL_VERDICT:** BLOCK\n**DECIDING_REASON:** Unsafe target encoding detected."
+    final_res = debate_engine.adapt_legacy_final_text(bold_block, exp_no=1)
+    assert final_res["final_verdict"] == "REJECT"
+    assert "Unsafe target encoding detected" in final_res["deciding_reason"]
+
+    bold_approve = "**FINAL_VERDICT:** APPROVE\n**DECIDING_REASON:** Proposal adheres strictly to frozen fold boundaries."
+    final_res_app = debate_engine.adapt_legacy_final_text(bold_approve, exp_no=1)
+    assert final_res_app["final_verdict"] == "APPROVE"
+    assert "Proposal adheres strictly" in final_res_app["deciding_reason"]
+
+    bold_review_block = "**VERDICT:** BLOCK\nOBJECTION 1: Data leakage.\n**REASON:** Unsafe feature."
+    review_res = debate_engine.adapt_legacy_review_text(bold_review_block, exp_no=1)
+    assert review_res["overall_verdict"] == "REJECT"
+
+
+# ── Test 13: Real objection text propagated to rebuttal ──
+def test_13_real_objection_text_propagated_to_rebuttal(debate_engine):
+    review_text = (
+        "OBJECTION 1: Target encoding on merchant_category leaks information across validation folds.\n"
+        "**VERDICT:** BLOCK\n"
+        "**REASON:** Critical data leakage risk."
+    )
+    review_res = debate_engine.adapt_legacy_review_text(review_text, exp_no=1)
+    assert len(review_res["objections"]) > 0
+    assert "Target encoding on merchant_category leaks information across validation folds." in review_res["objections"][0]["specific_risk"]
+
+
+# ── Test 14: Fallback records actual provider and model instead of config ──
+def test_14_fallback_records_actual_provider_and_model():
+    from unittest.mock import patch, MagicMock
+    from gemini_client import query_llm_with_lineage, LLMResponse
+
+    # Simulate AGY failure and Ollama failure to force fallback to Gemini CLI
+    with patch("agy_client.query_agy_cli", side_effect=RuntimeError("AGY QuotaExceeded")), \
+         patch("httpx.Client.post", side_effect=RuntimeError("Ollama ConnectionRefused")), \
+         patch("gemini_client.query_gemini_cli", return_value="Gemini fallback response text"):
+
+        resp = query_llm_with_lineage(
+            prompt="Explain GBDT velocity features",
+            model="claude-sonnet-4-6", # Requested config
+            prefer_agy=True
+        )
+
+        assert isinstance(resp, LLMResponse)
+        assert resp.text == "Gemini fallback response text"
+        # Actual provider and model that answered, NOT the requested configuration:
+        assert resp.provider == "gemini_cli"
+        assert resp.model == "gemini-3.5-flash-lite"
+        assert len(resp.fallback_chain) >= 2
+        assert any("antigravity_cli failed" in f for f in resp.fallback_chain)
+        assert any("ollama_cloud failed" in f for f in resp.fallback_chain)
+
+
